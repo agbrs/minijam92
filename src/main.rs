@@ -123,28 +123,89 @@ impl<'a> Entity<'a> {
 
         let y = self.velocity.y.to_raw().signum();
         if y != 0 {
-            let delta = self.collision_in_direction((0, y).into(), self.velocity.y.abs(), |v| {
-                level.collides(v)
-            });
+            agb::println!("prior position: ({}, {})", self.position.x, self.position.y);
+            let (delta, collided) =
+                self.collision_in_direction((0, y).into(), self.velocity.y.abs(), |v| {
+                    level.collides(v)
+                });
             self.position += delta;
+            if collided {
+                self.velocity.y = 0.into();
+            }
         }
         let x = self.velocity.x.to_raw().signum();
         if x != 0 {
-            let delta = self.collision_in_direction((x, 0).into(), self.velocity.x.abs(), |v| {
-                level.collides(v)
-            });
+            let (delta, collided) =
+                self.collision_in_direction((x, 0).into(), self.velocity.x.abs(), |v| {
+                    level.collides(v)
+                });
             self.position += delta;
+            if collided {
+                self.velocity.x = 0.into();
+            }
         }
 
         self.position - initial_position
     }
+
+    // fn collision_in_x(
+    //     &self,
+    //     distance: Number,
+    //     collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
+    // ) -> (Vector2D<Number>, bool) {
+    //     let number_collision: Rect<Number> = Rect::new(
+    //         (
+    //             self.collision_mask.position.x as i32,
+    //             self.collision_mask.position.y as i32,
+    //         )
+    //             .into(),
+    //         (
+    //             self.collision_mask.size.x as i32,
+    //             self.collision_mask.size.y as i32,
+    //         )
+    //             .into(),
+    //     );
+    //     let collider_center = self.position + number_collision.position;
+    //     let center_of_edge: Vector2D<Number> = (
+    //         collider_center.x + number_collision.size.x / 2,
+    //         collider_center.y * distance.to_raw().signum(),
+    //     )
+    //         .into();
+    //     let points: [Vector2D<Number>; 2] = [
+    //         (
+    //             center_of_edge.x,
+    //             center_of_edge.y + number_collision.size.y / 2,
+    //         )
+    //             .into(),
+    //         (
+    //             center_of_edge.x,
+    //             center_of_edge.y - number_collision.size.y / 2,
+    //         )
+    //             .into(),
+    //     ];
+
+    //     for edge_points in points {
+    //         let point = edge_points + (distance, 0.into()).into();
+    //         if let Some(collider) = collision(point) {
+    //             let center = collider.position + collider.size / 2;
+    //             let edge = center - collider.size.hadamard(direction) / 2;
+
+    //             if final_distance.magnitude_squared() > new_distance.magnitude_squared() {
+    //                 final_distance = new_distance;
+    //             }
+    //             has_collided = true;
+    //         }
+    //     }
+
+    //     ((0, 0).into(), false)
+    // }
 
     fn collision_in_direction(
         &mut self,
         direction: Vector2D<Number>,
         distance: Number,
         collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
-    ) -> Vector2D<Number> {
+    ) -> (Vector2D<Number>, bool) {
         let number_collision: Rect<Number> = Rect::new(
             (
                 self.collision_mask.position.x as i32,
@@ -164,25 +225,47 @@ impl<'a> Entity<'a> {
 
         let direction_transpose: Vector2D<Number> = direction.swap();
         let triple_collider: [Vector2D<Number>; 2] = [
-            center_collision_point + number_collision.size.hadamard(direction_transpose) * 28 / 64,
-            center_collision_point - number_collision.size.hadamard(direction_transpose) * 28 / 64,
+            center_collision_point + number_collision.size.hadamard(direction_transpose) * 31 / 64,
+            center_collision_point - number_collision.size.hadamard(direction_transpose) * 31 / 64,
         ];
 
         let original_distance = direction * distance;
         let mut final_distance = original_distance;
+
+        let mut has_collided = false;
 
         for edge_points in triple_collider {
             let point = edge_points + original_distance;
             if let Some(collider) = collision(point) {
                 let center = collider.position + collider.size / 2;
                 let edge = center - collider.size.hadamard(direction) / 2;
-                final_distance = original_distance
-                    - (point - edge).hadamard((direction.x.abs(), direction.y.abs()).into());
-                self.velocity = self.velocity.hadamard(direction_transpose);
+                let new_distance =
+                    (self.position - edge).hadamard((direction.x.abs(), direction.y.abs()).into());
+                if final_distance.magnitude_squared() > new_distance.magnitude_squared() {
+                    final_distance = new_distance;
+                }
+                has_collided = true;
+                agb::println!(
+                    "direction: ({}, {}), point: ({}, {}), center: ({}, {}), edge: ({}, {}), position: ({}, {}), delta: ({}, {}), point after adjustment: ({}, {})",
+                    direction.x,
+                    direction.y,
+                    point.x,
+                    point.y,
+                    center.x,
+                    center.y,
+                    edge.x,
+                    edge.y,
+                    self.position.x,
+                    self.position.y,
+                    final_distance.x,
+                    final_distance.y,
+                    edge_points.x + final_distance.x,
+                    edge_points.y + final_distance.y
+                );
             }
         }
 
-        final_distance
+        (final_distance, has_collided)
     }
 
     fn commit_with_fudge(&mut self, offset: Vector2D<Number>, fudge: Vector2D<i32>) {
@@ -331,6 +414,7 @@ impl<'a> Player<'a> {
         match self.state {
             PlayerState::OnGround => {
                 self.entity.velocity.y = 0.into();
+                self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
 
                 match &mut self.attack_timer {
                     AttackTimer::Idle => {
@@ -391,9 +475,7 @@ impl<'a> Player<'a> {
                 }
             }
             PlayerState::InAir => {
-                let gravity: Number = 1.into();
-                let gravity = gravity / 16;
-                self.entity.velocity.y += gravity;
+                self.entity.velocity.x = self.entity.velocity.x * 63 / 64;
 
                 match &mut self.attack_timer {
                     AttackTimer::Idle => {
@@ -410,6 +492,12 @@ impl<'a> Player<'a> {
                         } else {
                             self.entity.sprite.set_tile_id(12 * 4);
                         }
+
+                        if x != Tri::Zero {
+                            self.facing = x;
+                        }
+                        self.entity.sprite.set_hflip(self.facing == Tri::Negative);
+                        self.entity.velocity.x += Number::new(x as i32) / 64;
 
                         if buttons.is_just_pressed(Button::B) {
                             self.attack_timer =
@@ -433,17 +521,16 @@ impl<'a> Player<'a> {
                 }
             }
         }
-        self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
+        let gravity: Number = 1.into();
+        let gravity = gravity / 16;
+        self.entity.velocity.y += gravity;
 
         self.entity.update_position(level);
-
-        if self
+        let (_, collided_down) = self
             .entity
-            .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v))
-            .y
-            .abs()
-            < 1.into()
-        {
+            .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v));
+
+        if collided_down {
             self.state = PlayerState::OnGround;
         } else {
             self.state = PlayerState::InAir;
