@@ -4,6 +4,7 @@
 extern crate agb;
 extern crate alloc;
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 use agb::{
@@ -450,12 +451,37 @@ enum EnemyData {
     Slime(SlimeData),
 }
 
+enum SlimeState {
+    Idle,
+    Chasing,
+}
+
 struct SlimeData {
-    sprite_offset: u8,
+    sprite_offset: u16,
+    slime_state: SlimeState,
 }
 
 impl SlimeData {
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {}
+    fn new() -> Self {
+        Self {
+            sprite_offset: 0,
+            slime_state: SlimeState::Idle,
+        }
+    }
+
+    fn update(&mut self, entity: &mut Entity, _player: &Player, _level: &Level) {
+        match self.slime_state {
+            SlimeState::Idle => {
+                self.sprite_offset += 1;
+                if self.sprite_offset > 16 {
+                    self.sprite_offset = 0;
+                }
+
+                entity.sprite.set_tile_id((29 + self.sprite_offset / 8) * 4);
+            }
+            SlimeState::Chasing => todo!(),
+        }
+    }
 }
 
 impl EnemyData {
@@ -515,18 +541,27 @@ impl<'a> Game<'a> {
         self.input.update();
         self.player.update(&self.input, &self.level);
         self.player.commit((0, 0).into());
+
+        for enemy in self.enemies.iter_mut() {
+            enemy.update(&self.player, &self.level);
+            enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
+        }
+
         self.frame_count += 1;
         GameStatus::Continue
     }
 
     fn new(object: &'a ObjectControl, level: Level) -> Self {
+        let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
+        slime.entity.position = (100, 50).into();
+
         Self {
             player: Player::new(object),
             input: ButtonController::new(),
             frame_count: 0,
             level,
 
-            enemies: Vec::new(),
+            enemies: vec![slime],
         }
     }
 }
