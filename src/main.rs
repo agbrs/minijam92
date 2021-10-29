@@ -192,7 +192,7 @@ fn long_sword_fudge(frame: u16) -> i32 {
         4 => 5,
         5 => 5,
         6 => 5,
-        7 => 5,
+        7 => 4,
         _ => unreachable!(),
     }
 }
