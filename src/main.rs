@@ -200,7 +200,7 @@ impl SwordState {
     }
     fn jump_attack_duration(self) -> u16 {
         match self {
-            SwordState::LongSword => 32,
+            SwordState::LongSword => 34,
         }
     }
     fn attack_frame(self, timer: u16) -> u16 {
@@ -225,11 +225,6 @@ impl SwordState {
     }
 
     fn cooldown_time(self) -> u16 {
-        match self {
-            SwordState::LongSword => 20,
-        }
-    }
-    fn jump_attack_cooldown_time(self) -> u16 {
         match self {
             SwordState::LongSword => 20,
         }
@@ -413,19 +408,11 @@ impl<'a> Player<'a> {
                             .set_tile_id(self.sword.to_jump_sprite_id(frame));
 
                         if *a == 0 {
-                            self.attack_timer =
-                                AttackTimer::Cooldown(self.sword.jump_attack_cooldown_time());
+                            self.attack_timer = AttackTimer::Idle;
                         }
                     }
                     AttackTimer::Cooldown(a) => {
-                        *a -= 1;
-                        let frame = self.sword.jump_attack_hold_frame();
-                        self.entity
-                            .sprite
-                            .set_tile_id(self.sword.to_jump_sprite_id(frame));
-                        if *a == 0 {
-                            self.attack_timer = AttackTimer::Idle;
-                        }
+                        self.attack_timer = AttackTimer::Idle;
                     }
                 }
             }
