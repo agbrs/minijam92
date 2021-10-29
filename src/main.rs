@@ -59,10 +59,20 @@ impl Level {
     fn collides(&self, v: Vector2D<Number>) -> Option<Rect<Number>> {
         let vf = v.floor();
         let (x, y) = (vf / 8).get();
-        if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y > tilemap::HEIGHT as i32 - 20) {
+        if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y > tilemap::HEIGHT as i32) {
             return Some(Rect::new((x * 8, y * 8).into(), (8, 8).into()));
         }
-        None
+        let position = tilemap::WIDTH as usize * y as usize + x as usize;
+        let tile_foreground = tilemap::FOREGROUND_MAP[position];
+        let tile_background = tilemap::BACKGROUND_MAP[position];
+        let tile_foreground_property = tilemap::TILE_TYPES[tile_foreground as usize];
+        let tile_background_property = tilemap::TILE_TYPES[tile_background as usize];
+
+        if tile_foreground_property == 1 || tile_background_property == 1 {
+            Some(Rect::new((x * 8, y * 8).into(), (8, 8).into()))
+        } else {
+            None
+        }
     }
 }
 
@@ -114,7 +124,7 @@ impl<'a> Entity<'a> {
     }
 
     fn collision_in_direction(
-        &self,
+        &mut self,
         direction: Vector2D<Number>,
         distance: Number,
         collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
@@ -137,10 +147,9 @@ impl<'a> Entity<'a> {
             collider_center + number_collision.size.hadamard(direction) / 2;
 
         let direction_transpose: Vector2D<Number> = direction.swap();
-        let triple_collider: [Vector2D<Number>; 3] = [
-            center_collision_point + number_collision.size.hadamard(direction_transpose) / 2,
-            center_collision_point,
-            center_collision_point - number_collision.size.hadamard(direction_transpose) / 2,
+        let triple_collider: [Vector2D<Number>; 2] = [
+            center_collision_point + number_collision.size.hadamard(direction_transpose) * 28 / 64,
+            center_collision_point - number_collision.size.hadamard(direction_transpose) * 28 / 64,
         ];
 
         let original_distance = direction * distance;
@@ -151,7 +160,9 @@ impl<'a> Entity<'a> {
             if let Some(collider) = collision(point) {
                 let center = collider.position + collider.size / 2;
                 let edge = center - collider.size.hadamard(direction) / 2;
-                final_distance = original_distance - (point - edge).hadamard(direction);
+                final_distance = original_distance
+                    - (point - edge).hadamard((direction.x.abs(), direction.y.abs()).into());
+                self.velocity = self.velocity.hadamard(direction_transpose);
             }
         }
 
@@ -280,7 +291,7 @@ impl<'a> Player<'a> {
     fn new(object_controller: &'a ObjectControl) -> Player {
         let mut entity = Entity::new(
             object_controller,
-            Rect::new((8_u16, 8_u16).into(), (4_u16, 4_u16).into()),
+            Rect::new((0_u16, 0_u16).into(), (8_u16, 10_u16).into()),
         );
         entity
             .sprite
