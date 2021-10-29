@@ -306,7 +306,7 @@ impl<'a> Game<'a> {
     }
 }
 
-const MINIMUSIC: &[u8] = agb::include_wav!("sfx/01_-_Forward_to_Victory.wav");
+const MINIMUSIC: &[u8] = agb::include_wav!("sfx/01_-_The_Purple_Night.wav");
 
 fn game_with_level(gba: &mut agb::Gba) {
     let mut object = gba.display.object.get();
