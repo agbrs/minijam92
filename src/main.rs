@@ -1,6 +1,11 @@
 #![no_std]
 #![no_main]
 
+extern crate agb;
+extern crate alloc;
+
+use alloc::vec::Vec;
+
 use agb::{
     display::{
         background::BackgroundRegular,
@@ -15,20 +20,20 @@ use agb::{
 agb::include_gfx!("gfx/objects.toml");
 agb::include_gfx!("gfx/background.toml");
 
-extern crate agb;
-
 type Number = FixedNum<8>;
 
-struct Level {
+struct Level<'a> {
     background: BackgroundRegular<'static>,
     foreground: BackgroundRegular<'static>,
+
+    enemies: Vec<Enemy<'a>>,
 }
 
-impl Level {
+impl<'a> Level<'a> {
     fn load_level(
         mut backdrop: BackgroundRegular<'static>,
         mut foreground: BackgroundRegular<'static>,
-    ) -> Level {
+    ) -> Self {
         backdrop.set_position(Vector2D::new(0, 0));
         backdrop.set_map(agb::display::background::Map::new(
             tilemap::BACKGROUND_MAP,
@@ -50,9 +55,11 @@ impl Level {
 
         backdrop.show();
         foreground.show();
-        Level {
+        Self {
             background: backdrop,
             foreground,
+
+            enemies: Vec::new(),
         }
     }
 
@@ -80,7 +87,7 @@ struct Game<'a> {
     player: Player<'a>,
     input: ButtonController,
     frame_count: u32,
-    level: Level,
+    level: Level<'a>,
 }
 
 struct Entity<'a> {
@@ -438,6 +445,63 @@ impl<'a> Player<'a> {
 
     fn commit(&mut self, offset: Vector2D<Number>) {
         self.entity.commit_with_fudge(offset, self.fudge_factor);
+    }
+}
+
+enum EnemyData {
+    Slime(SlimeData),
+}
+
+struct SlimeData {
+    sprite_offset: u8,
+}
+
+impl SlimeData {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {}
+}
+
+impl EnemyData {
+    fn collision_mask(&self) -> Rect<u16> {
+        match self {
+            &EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
+        }
+    }
+
+    fn tile_id(&self) -> u16 {
+        match self {
+            &EnemyData::Slime(_) => 29,
+        }
+    }
+
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+        match self {
+            EnemyData::Slime(data) => data.update(entity, player, level),
+        }
+    }
+}
+
+struct Enemy<'a> {
+    entity: Entity<'a>,
+    enemy_data: EnemyData,
+}
+
+impl<'a> Enemy<'a> {
+    fn new(object_controller: &'a ObjectControl, enemy_data: EnemyData) -> Self {
+        let mut entity = Entity::new(object_controller, enemy_data.collision_mask());
+
+        entity
+            .sprite
+            .set_sprite_size(agb::display::object::Size::S16x16);
+        entity.sprite.set_tile_id(enemy_data.tile_id());
+        entity.sprite.show();
+
+        entity.sprite.commit();
+
+        Self { entity, enemy_data }
+    }
+
+    fn update(&mut self, player: &Player, level: &Level) {
+        self.enemy_data.update(&mut self.entity, player, level);
     }
 }
 
