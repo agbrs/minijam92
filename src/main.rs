@@ -48,8 +48,12 @@ impl<'a> Entity<'a> {
         self.sprite.set_position(self.position.floor());
     }
 
-    fn collision_in_direction(&self, direction: Direction, distance: Number) -> Vector2D<Number> {
-        let number_collision = Rect::new(
+    fn collision_in_direction(
+        &self,
+        direction: Vector2D<Number>,
+        distance: Number,
+    ) -> Vector2D<Number> {
+        let number_collision: Rect<Number> = Rect::new(
             (
                 self.collision_mask.position.x as i32,
                 self.collision_mask.position.y as i32,
@@ -61,31 +65,19 @@ impl<'a> Entity<'a> {
             )
                 .into(),
         );
-        let collider_edge = self.position.floor() + number_collision.position;
-        let triple_collider: [Vector2D<i32>; 3] = match direction {
-            Direction::North => [
-                (0, 0).into(),
-                (number_collision.size.x / 2, 0).into(),
-                (number_collision.size.x, 0).into(),
-            ],
-            Direction::South => [
-                (0, number_collision.size.y).into(),
-                (number_collision.size.x / 2, number_collision.size.y).into(),
-                (number_collision.size.x, number_collision.size.y).into(),
-            ],
-            Direction::West => [
-                (0, 0).into(),
-                (0, number_collision.size.y / 2).into(),
-                (0, number_collision.size.y).into(),
-            ],
-            Direction::East => [
-                (number_collision.size.x, 0).into(),
-                (number_collision.size.x, number_collision.size.y / 2).into(),
-                (number_collision.size.x, number_collision.size.y).into(),
-            ],
-        };
+        let collider_center = self.position + number_collision.position;
+
+        let center_collision_point: Vector2D<Number> =
+            collider_center + number_collision.size.hadamard(direction) / 2;
+
+        let direction_transpose: Vector2D<Number> = direction.swap();
+        let triple_collider: [Vector2D<Number>; 3] = [
+            center_collision_point + number_collision.size.hadamard(direction_transpose) / 2,
+            center_collision_point,
+            center_collision_point - number_collision.size.hadamard(direction_transpose) / 2,
+        ];
         for collider in triple_collider {
-            let point = collider + collider_edge;
+            let point = collider + direction * distance;
         }
 
         (0, 0).into()
