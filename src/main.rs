@@ -4,7 +4,7 @@
 use agb::{
     display::{
         object::{ObjectControl, ObjectStandard},
-        Priority,
+        Priority, HEIGHT, WIDTH,
     },
     input::{Button, ButtonController, Tri},
     number::{FixedNum, FixedWidthSignedInteger, Rect, Vector2D},
@@ -48,6 +48,49 @@ impl<'a> Entity<'a> {
         self.sprite.set_position(self.position.floor());
     }
 
+    fn collision_in_direction(&self, direction: Direction, distance: Number) -> Vector2D<Number> {
+        let number_collision = Rect::new(
+            (
+                self.collision_mask.position.x as i32,
+                self.collision_mask.position.y as i32,
+            )
+                .into(),
+            (
+                self.collision_mask.size.x as i32,
+                self.collision_mask.size.y as i32,
+            )
+                .into(),
+        );
+        let collider_edge = self.position.floor() + number_collision.position;
+        let triple_collider: [Vector2D<i32>; 3] = match direction {
+            Direction::North => [
+                (0, 0).into(),
+                (number_collision.size.x / 2, 0).into(),
+                (number_collision.size.x, 0).into(),
+            ],
+            Direction::South => [
+                (0, number_collision.size.y).into(),
+                (number_collision.size.x / 2, number_collision.size.y).into(),
+                (number_collision.size.x, number_collision.size.y).into(),
+            ],
+            Direction::West => [
+                (0, 0).into(),
+                (0, number_collision.size.y / 2).into(),
+                (0, number_collision.size.y).into(),
+            ],
+            Direction::East => [
+                (number_collision.size.x, 0).into(),
+                (number_collision.size.x, number_collision.size.y / 2).into(),
+                (number_collision.size.x, number_collision.size.y).into(),
+            ],
+        };
+        for collider in triple_collider {
+            let point = collider + collider_edge;
+        }
+
+        (0, 0).into()
+    }
+
     // returns whether the entity collides going in the given direction
     fn collides_going_in_direction(&self, direction: Vector2D<Number>, distance: Number) -> bool {
         let number_collision = Rect::new(
@@ -75,6 +118,17 @@ impl<'a> Entity<'a> {
             }
         }
         false
+    }
+
+    fn commit_with_fudge(&mut self, offset: Vector2D<Number>, fudge: Vector2D<i32>) {
+        let position = (self.position - offset).floor() + fudge;
+        self.sprite.set_position(position - (8, 8).into());
+        if position.x < -8 || position.x > WIDTH + 8 || position.y < -8 || position.y > HEIGHT + 8 {
+            self.sprite.hide();
+        } else {
+            self.sprite.show();
+        }
+        self.sprite.commit();
     }
 }
 
@@ -133,12 +187,12 @@ fn long_sword_fudge(frame: u16) -> i32 {
     match frame {
         0 => 0,
         1 => 0,
-        2 => -1,
-        3 => -4,
-        4 => -5,
-        5 => -5,
-        6 => -5,
-        7 => -5,
+        2 => 1,
+        3 => 4,
+        4 => 5,
+        5 => 5,
+        6 => 5,
+        7 => 5,
         _ => unreachable!(),
     }
 }
@@ -156,6 +210,7 @@ struct Player<'a> {
     sprite_offset: u16,
     attack_timer: AttackTimer,
     sword: SwordState,
+    fudge_factor: Vector2D<i32>,
 }
 
 impl<'a> Player<'a> {
@@ -179,13 +234,14 @@ impl<'a> Player<'a> {
             sword: SwordState::LongSword,
             sprite_offset: 0,
             attack_timer: AttackTimer::Idle,
+            fudge_factor: (0, 0).into(),
         }
     }
 
     fn update(&mut self, buttons: &ButtonController) {
         let x = buttons.x_tri();
 
-        let mut position_fudge_factor: Vector2D<i32> = (0, 0).into();
+        self.fudge_factor = (0, 0).into();
 
         match self.state {
             PlayerState::OnGround => match &mut self.attack_timer {
@@ -232,7 +288,7 @@ impl<'a> Player<'a> {
                 AttackTimer::Attack(a) => {
                     *a -= 1;
                     let frame = self.sword.attack_frame(*a);
-                    position_fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
+                    self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
                     self.entity
                         .sprite
                         .set_tile_id(self.sword.to_sprite_id(frame));
@@ -243,7 +299,7 @@ impl<'a> Player<'a> {
                 AttackTimer::Cooldown(a) => {
                     *a -= 1;
                     let frame = self.sword.hold_frame();
-                    position_fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
+                    self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
                     self.entity
                         .sprite
                         .set_tile_id(self.sword.to_sprite_id(frame));
@@ -269,15 +325,12 @@ impl<'a> Player<'a> {
         self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
 
         self.entity.update_position();
-        self.entity
-            .sprite
-            .set_position(self.entity.position.floor() - position_fudge_factor);
 
         self.sprite_offset += 1;
     }
 
-    fn commit(&self) {
-        self.entity.sprite.commit();
+    fn commit(&mut self, offset: Vector2D<Number>) {
+        self.entity.commit_with_fudge(offset, self.fudge_factor);
     }
 }
 
@@ -292,7 +345,7 @@ impl<'a> Game<'a> {
     fn advance_frame(&mut self) -> GameStatus {
         self.input.update();
         self.player.update(&self.input);
-        self.player.commit();
+        self.player.commit((0, 0).into());
         self.frame_count += 1;
         GameStatus::Continue
     }
