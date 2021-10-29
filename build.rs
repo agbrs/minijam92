@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -22,11 +23,24 @@ fn main() {
     let foreground_layer = &map.layers[1];
     let foreground_tiles = extract_tiles(&foreground_layer.tiles);
 
+    let mut tile_types = HashMap::new();
+
+    for tile in map.tilesets[0].tiles.iter() {
+        if let Some("Collision") = tile.tile_type.as_deref() {
+            tile_types.insert(tile.id, 1u8);
+        }
+    }
+
+    let tile_types =
+        (0..map.tilesets[0].tilecount.unwrap()).map(|id| tile_types.get(&id).unwrap_or(&0));
+
     let output = quote! {
         pub const BACKGROUND_MAP: &[u16] = &[#(#background_tiles),*];
         pub const FOREGROUND_MAP: &[u16] = &[#(#foreground_tiles),*];
         pub const WIDTH: u32 = #width;
         pub const HEIGHT: u32 = #height;
+
+        pub const TILE_TYPES: &[u8] = &[#(#tile_types),*];
     };
 
     let output_file = File::create(format!("{}/tilemap.rs", out_dir))
