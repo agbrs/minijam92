@@ -411,7 +411,7 @@ impl<'a> Player<'a> {
                             self.attack_timer = AttackTimer::Idle;
                         }
                     }
-                    AttackTimer::Cooldown(a) => {
+                    AttackTimer::Cooldown(_) => {
                         self.attack_timer = AttackTimer::Idle;
                     }
                 }
