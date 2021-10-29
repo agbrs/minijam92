@@ -7,7 +7,7 @@ use agb::{
         Priority,
     },
     input::{ButtonController, Tri},
-    number::{FixedNum, Rect, Vector2D},
+    number::{FixedNum, FixedWidthSignedInteger, Rect, Vector2D},
     sound::mixer::SoundChannel,
 };
 
@@ -62,6 +62,7 @@ struct Player<'a> {
     entity: Entity<'a>,
     facing: Tri,
     state: PlayerState,
+    sprite_offset: u16,
     sword: SwordState,
 }
 
@@ -84,6 +85,7 @@ impl<'a> Player<'a> {
             facing: Tri::Zero,
             state: PlayerState::OnGround,
             sword: SwordState::LongSword,
+            sprite_offset: 0,
         }
     }
 
@@ -96,13 +98,33 @@ impl<'a> Player<'a> {
         match self.state {
             PlayerState::OnGround => {
                 self.entity.sprite.set_hflip(self.facing == Tri::Negative);
-                self.entity.velocity.x += Number::new(x as i32) / 8;
-                self.entity.velocity.x = self.entity.velocity.x * 54 / 64;
+                self.entity.velocity.x += Number::new(x as i32) / 4;
+                self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
+
+                if self.entity.velocity.x.abs() > Number::new(1) / 10 {
+                    if self.sprite_offset >= 6 * 4 {
+                        self.sprite_offset = 0;
+                    }
+
+                    self.entity
+                        .sprite
+                        .set_tile_id((4 + self.sprite_offset / 4) * 4);
+                } else {
+                    if self.sprite_offset >= 4 * 8 {
+                        self.sprite_offset = 0;
+                    }
+
+                    self.entity
+                        .sprite
+                        .set_tile_id((0 + self.sprite_offset / 8) * 4);
+                }
             }
             PlayerState::Falling => {}
             PlayerState::Rising => {}
         }
         self.entity.update_position();
+
+        self.sprite_offset += 1;
     }
 
     fn commit(&self) {
