@@ -46,16 +46,100 @@ impl<'a> Entity<'a> {
         self.position += self.velocity;
         self.sprite.set_position(self.position.floor());
     }
+
+    // returns whether the entity collides going in the given direction
+    fn collides_going_in_direction(&self, direction: Vector2D<Number>, distance: Number) -> bool {
+        let number_collision = Rect::new(
+            (
+                self.collision_mask.position.x as i32,
+                self.collision_mask.position.y as i32,
+            )
+                .into(),
+            (
+                self.collision_mask.size.x as i32,
+                self.collision_mask.size.y as i32,
+            )
+                .into(),
+        );
+        let a = self.position.floor() + number_collision.position;
+        let three_colliders = [
+            a + (0, number_collision.size.y).into(),
+            a + (number_collision.size.x / 2, number_collision.size.y).into(),
+            a + (number_collision.size.x, number_collision.size.y).into(),
+        ];
+        for i in three_colliders {
+            let n = i + (direction * distance).floor();
+            if n.y > 160 {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+enum Direction {
+    North,
+    East,
+    South,
+    West,
 }
 
 enum PlayerState {
     OnGround,
-    Rising,
-    Falling,
+    InAir,
 }
 
+#[derive(Clone, Copy)]
 enum SwordState {
     LongSword,
+}
+
+impl SwordState {
+    fn attack_duration(self) -> u16 {
+        match self {
+            SwordState::LongSword => 60,
+        }
+    }
+    fn attack_frame(self, timer: u16) -> u16 {
+        match self {
+            SwordState::LongSword => (60 - timer) / 8,
+        }
+    }
+    fn hold_frame(self) -> u16 {
+        match self {
+            SwordState::LongSword => 7,
+        }
+    }
+
+    fn cooldown_time(self) -> u16 {
+        match self {
+            SwordState::LongSword => 20,
+        }
+    }
+    fn to_sprite_id(self, frame: u16) -> u16 {
+        match self {
+            SwordState::LongSword => (16 + frame) * 4,
+        }
+    }
+    fn fudge(self, frame: u16) -> i32 {
+        match self {
+            SwordState::LongSword => long_sword_fudge(frame),
+        }
+    }
+}
+
+fn long_sword_fudge(frame: u16) -> i32 {
+    match frame {
+        0 => 0,
+        1 => 0,
+        2 => -1,
+        3 => -4,
+        4 => -5,
+        5 => -5,
+        6 => -5,
+        7 => -5,
+        _ => unreachable!(),
+    }
 }
 
 enum AttackTimer {
@@ -105,6 +189,7 @@ impl<'a> Player<'a> {
         match self.state {
             PlayerState::OnGround => match &mut self.attack_timer {
                 AttackTimer::Idle => {
+                    self.entity.velocity.y = 0.into();
                     if x != Tri::Zero {
                         self.facing = x;
                     }
@@ -127,41 +212,58 @@ impl<'a> Player<'a> {
                             .sprite
                             .set_tile_id((0 + self.sprite_offset / 8) * 4);
                     }
+                    self.state = if self
+                        .entity
+                        .collides_going_in_direction((0, 1).into(), 1.into())
+                    {
+                        PlayerState::OnGround
+                    } else {
+                        PlayerState::InAir
+                    };
 
-                    if buttons.is_just_pressed(Button::A) {
-                        self.attack_timer = AttackTimer::Attack(60);
+                    if buttons.is_just_pressed(Button::B) {
+                        self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
+                    } else if buttons.is_just_pressed(Button::A) {
+                        self.entity.velocity.y -= 2;
+                        self.state = PlayerState::InAir;
                     }
                 }
                 AttackTimer::Attack(a) => {
                     *a -= 1;
-                    let sprite_id = (60 - *a) / 8;
-                    let x_fudge = match sprite_id {
-                        0 => 0,
-                        1 => 0,
-                        2 => -1,
-                        3 => -4,
-                        4 => -5,
-                        5 => -5,
-                        6 => -5,
-                        7 => -5,
-                        _ => unreachable!(),
-                    };
-                    position_fudge_factor.x = x_fudge * self.facing as i32;
-                    self.entity.sprite.set_tile_id((16 + sprite_id) * 4);
+                    let frame = self.sword.attack_frame(*a);
+                    position_fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
+                    self.entity
+                        .sprite
+                        .set_tile_id(self.sword.to_sprite_id(frame));
                     if *a == 0 {
-                        self.attack_timer = AttackTimer::Cooldown(20);
+                        self.attack_timer = AttackTimer::Cooldown(self.sword.cooldown_time());
                     }
                 }
                 AttackTimer::Cooldown(a) => {
                     *a -= 1;
-                    position_fudge_factor.x = -5 * self.facing as i32;
+                    let frame = self.sword.hold_frame();
+                    position_fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
+                    self.entity
+                        .sprite
+                        .set_tile_id(self.sword.to_sprite_id(frame));
                     if *a == 0 {
                         self.attack_timer = AttackTimer::Idle;
                     }
                 }
             },
-            PlayerState::Falling => {}
-            PlayerState::Rising => {}
+            PlayerState::InAir => {
+                let gravity: Number = 1.into();
+                let gravity = gravity / 16;
+                self.entity.velocity.y += gravity;
+                self.state = if self
+                    .entity
+                    .collides_going_in_direction((0, 1).into(), 1.into())
+                {
+                    PlayerState::OnGround
+                } else {
+                    PlayerState::InAir
+                };
+            }
         }
         self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
 
@@ -203,7 +305,7 @@ impl<'a> Game<'a> {
     }
 }
 
-const MINIMUSIC: &[u8] = agb::include_wav!("sfx/Mini_Jam_92.wav");
+const MINIMUSIC: &[u8] = agb::include_wav!("sfx/01_-_Forward_to_Victory.wav");
 
 fn game_with_level(gba: &mut agb::Gba) {
     let mut object = gba.display.object.get();
