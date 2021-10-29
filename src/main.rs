@@ -549,7 +549,11 @@ impl SlimeData {
                     let gravity = gravity / 16;
                     entity.velocity.y += gravity;
 
-                    entity.update_position(level);
+                    let updated_position = entity.update_position(level);
+                    if updated_position.y > 0.into() {
+                        // we're falling
+                        self.sprite_offset = 6 * 6;
+                    }
                 }
             }
         }
