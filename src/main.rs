@@ -189,17 +189,17 @@ impl SwordState {
     }
     fn jump_attack_duration(self) -> u16 {
         match self {
-            SwordState::LongSword => 16,
+            SwordState::LongSword => 32,
         }
     }
     fn attack_frame(self, timer: u16) -> u16 {
         match self {
-            SwordState::LongSword => (60 - timer) / 8,
+            SwordState::LongSword => (self.attack_duration() - timer) / 8,
         }
     }
     fn jump_attack_frame(self, timer: u16) -> u16 {
         match self {
-            SwordState::LongSword => (16 - timer) / 4,
+            SwordState::LongSword => (self.jump_attack_duration() - timer) / 8,
         }
     }
     fn hold_frame(self) -> u16 {
@@ -412,7 +412,7 @@ impl<'a> Player<'a> {
                         self.entity
                             .sprite
                             .set_tile_id(self.sword.to_jump_sprite_id(frame));
-                        if *a == 0 || self.state == PlayerState::OnGround {
+                        if *a == 0 {
                             self.attack_timer = AttackTimer::Idle;
                         }
                     }
