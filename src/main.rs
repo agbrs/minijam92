@@ -473,11 +473,13 @@ impl SlimeData {
         match self.slime_state {
             SlimeState::Idle => {
                 self.sprite_offset += 1;
-                if self.sprite_offset > 16 {
+                if self.sprite_offset >= 32 {
                     self.sprite_offset = 0;
                 }
 
-                entity.sprite.set_tile_id((29 + self.sprite_offset / 8) * 4);
+                entity
+                    .sprite
+                    .set_tile_id((29 + self.sprite_offset / 16) * 4);
             }
             SlimeState::Chasing => todo!(),
         }
