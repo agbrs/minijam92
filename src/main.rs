@@ -55,6 +55,15 @@ impl Level {
             foreground,
         }
     }
+
+    fn collides(v: Vector2D<Number>) -> Option<Rect<Number>> {
+        let vf = v.floor();
+        let (x, y) = (vf / 8).get();
+        if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y >= tilemap::HEIGHT as i32) {
+            return Some(Rect::new((x, y).into(), (8, 8).into()));
+        }
+        None
+    }
 }
 
 struct Game<'a> {
@@ -92,6 +101,7 @@ impl<'a> Entity<'a> {
         &self,
         direction: Vector2D<Number>,
         distance: Number,
+        collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
     ) -> Vector2D<Number> {
         let number_collision: Rect<Number> = Rect::new(
             (
@@ -116,40 +126,20 @@ impl<'a> Entity<'a> {
             center_collision_point,
             center_collision_point - number_collision.size.hadamard(direction_transpose) / 2,
         ];
-        for collider in triple_collider {
-            let point = collider + direction * distance;
-        }
 
-        (0, 0).into()
-    }
+        let original_distance = direction * distance;
+        let mut final_distance = original_distance;
 
-    // returns whether the entity collides going in the given direction
-    fn collides_going_in_direction(&self, direction: Vector2D<Number>, distance: Number) -> bool {
-        let number_collision = Rect::new(
-            (
-                self.collision_mask.position.x as i32,
-                self.collision_mask.position.y as i32,
-            )
-                .into(),
-            (
-                self.collision_mask.size.x as i32,
-                self.collision_mask.size.y as i32,
-            )
-                .into(),
-        );
-        let a = self.position.floor() + number_collision.position;
-        let three_colliders = [
-            a + (0, number_collision.size.y).into(),
-            a + (number_collision.size.x / 2, number_collision.size.y).into(),
-            a + (number_collision.size.x, number_collision.size.y).into(),
-        ];
-        for i in three_colliders {
-            let n = i + (direction * distance).floor();
-            if n.y > 160 {
-                return true;
+        for edge_points in triple_collider {
+            let point = edge_points + original_distance;
+            if let Some(collider) = collision(point) {
+                let center = collider.position + collider.size / 2;
+                let edge = center - collider.size.hadamard(direction) / 2;
+                final_distance = original_distance - (edge - point).hadamard(direction);
             }
         }
-        false
+
+        final_distance
     }
 
     fn commit_with_fudge(&mut self, offset: Vector2D<Number>, fudge: Vector2D<i32>) {
