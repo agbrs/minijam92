@@ -22,14 +22,12 @@ agb::include_gfx!("gfx/background.toml");
 
 type Number = FixedNum<8>;
 
-struct Level<'a> {
+struct Level {
     background: BackgroundRegular<'static>,
     foreground: BackgroundRegular<'static>,
-
-    enemies: Vec<Enemy<'a>>,
 }
 
-impl<'a> Level<'a> {
+impl Level {
     fn load_level(
         mut backdrop: BackgroundRegular<'static>,
         mut foreground: BackgroundRegular<'static>,
@@ -58,8 +56,6 @@ impl<'a> Level<'a> {
         Self {
             background: backdrop,
             foreground,
-
-            enemies: Vec::new(),
         }
     }
 
@@ -87,7 +83,9 @@ struct Game<'a> {
     player: Player<'a>,
     input: ButtonController,
     frame_count: u32,
-    level: Level<'a>,
+    level: Level,
+
+    enemies: Vec<Enemy<'a>>,
 }
 
 struct Entity<'a> {
@@ -521,12 +519,14 @@ impl<'a> Game<'a> {
         GameStatus::Continue
     }
 
-    fn new(object: &ObjectControl, level: Level) -> Game {
-        Game {
+    fn new(object: &'a ObjectControl, level: Level) -> Self {
+        Self {
             player: Player::new(object),
             input: ButtonController::new(),
             frame_count: 0,
             level,
+
+            enemies: Vec::new(),
         }
     }
 }
