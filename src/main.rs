@@ -550,7 +550,7 @@ impl SlimeData {
                     entity.velocity.y += gravity;
 
                     let updated_position = entity.update_position(level);
-                    if updated_position.y > 0.into() {
+                    if updated_position.y > 0.into() && self.sprite_offset > 2 * 6 {
                         // we're falling
                         self.sprite_offset = 6 * 6;
                     }
