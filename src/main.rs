@@ -4,7 +4,6 @@
 extern crate agb;
 extern crate alloc;
 
-use alloc::vec;
 use alloc::vec::Vec;
 
 use agb::{
@@ -464,7 +463,7 @@ enum EnemyData {
 
 enum SlimeState {
     Idle,
-    Chasing,
+    Chasing(Tri),
 }
 
 struct SlimeData {
@@ -480,7 +479,7 @@ impl SlimeData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, _player: &Player, _level: &Level) {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
         match self.slime_state {
             SlimeState::Idle => {
                 self.sprite_offset += 1;
@@ -491,8 +490,47 @@ impl SlimeData {
                 entity
                     .sprite
                     .set_tile_id((29 + self.sprite_offset / 16) * 4);
+
+                if (player.entity.position - entity.position).manhattan_distance() < 40.into() {
+                    let direction = if player.entity.position.x > entity.position.x {
+                        Tri::Positive
+                    } else if player.entity.position.x < entity.position.x {
+                        Tri::Negative
+                    } else {
+                        Tri::Zero
+                    };
+
+                    self.slime_state = SlimeState::Chasing(direction);
+                    self.sprite_offset = 0;
+                }
             }
-            SlimeState::Chasing => todo!(),
+            SlimeState::Chasing(direction) => {
+                self.sprite_offset += 1;
+                if self.sprite_offset >= 7 * 6 {
+                    self.slime_state = SlimeState::Idle;
+                } else {
+                    let frame = ping_pong(self.sprite_offset / 6, 5);
+                    entity.sprite.set_tile_id((frame + 31) * 4);
+
+                    entity.velocity.x = match frame {
+                        2 | 3 | 4 => {
+                            (Number::new(1) / 5)
+                                * match direction {
+                                    Tri::Negative => -1,
+                                    Tri::Positive => 1,
+                                    Tri::Zero => 0,
+                                }
+                        }
+                        _ => 0.into(),
+                    };
+
+                    let gravity: Number = 1.into();
+                    let gravity = gravity / 16;
+                    entity.velocity.y += gravity;
+
+                    entity.update_position(level);
+                }
+            }
         }
     }
 }
@@ -637,4 +675,14 @@ fn main() -> ! {
     game_with_level(&mut gba);
 
     loop {}
+}
+
+fn ping_pong(i: u16, n: u16) -> u16 {
+    let cycle = 2 * (n - 1);
+    let i = i % cycle;
+    if i >= n {
+        cycle - i
+    } else {
+        i
+    }
 }
