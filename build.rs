@@ -32,7 +32,7 @@ fn main() {
     }
 
     let tile_types =
-        (0..map.tilesets[0].tilecount.unwrap()).map(|id| tile_types.get(&id).unwrap_or(&0));
+        (0..map.tilesets[0].tilecount.unwrap()).map(|id| tile_types.get(&(id + 1)).unwrap_or(&0));
 
     let output = quote! {
         pub const BACKGROUND_MAP: &[u16] = &[#(#background_tiles),*];
