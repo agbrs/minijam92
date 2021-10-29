@@ -70,13 +70,10 @@ impl Level {
         }
     }
 
-    fn collides(&self, v: Vector2D<Number>, print_debug: bool) -> Option<Rect<Number>> {
+    fn collides(&self, v: Vector2D<Number>) -> Option<Rect<Number>> {
         let factor: Number = Number::new(1) / Number::new(8);
         let (x, y) = (v * factor).floor().get();
 
-        if print_debug {
-            agb::println!("Checking {}, {} for position {}, {}", x, y, v.x, v.y);
-        }
         if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y > tilemap::HEIGHT as i32) {
             return Some(Rect::new((x * 8, y * 8).into(), (8, 8).into()));
         }
@@ -123,17 +120,14 @@ impl<'a> Entity<'a> {
     }
 
     fn update_position(&mut self, level: &Level) -> Vector2D<Number> {
-        agb::println!("prior position: ({}, {})", self.position.x, self.position.y);
         let initial_position = self.position;
 
         let y = self.velocity.y.to_raw().signum();
         if y != 0 {
-            let (delta, collided) = self.collision_in_direction(
-                (0, y).into(),
-                self.velocity.y.abs(),
-                |v| level.collides(v, true),
-                true,
-            );
+            let (delta, collided) =
+                self.collision_in_direction((0, y).into(), self.velocity.y.abs(), |v| {
+                    level.collides(v)
+                });
             self.position += delta;
             if collided {
                 self.velocity.y = 0.into();
@@ -141,80 +135,24 @@ impl<'a> Entity<'a> {
         }
         let x = self.velocity.x.to_raw().signum();
         if x != 0 {
-            let (delta, collided) = self.collision_in_direction(
-                (x, 0).into(),
-                self.velocity.x.abs(),
-                |v| level.collides(v, true),
-                true,
-            );
+            let (delta, collided) =
+                self.collision_in_direction((x, 0).into(), self.velocity.x.abs(), |v| {
+                    level.collides(v)
+                });
             self.position += delta;
             if collided {
                 self.velocity.x = 0.into();
             }
         }
 
-        agb::println!("post position: ({}, {})", self.position.x, self.position.y);
         self.position - initial_position
     }
-
-    // fn collision_in_x(
-    //     &self,
-    //     distance: Number,
-    //     collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
-    // ) -> (Vector2D<Number>, bool) {
-    //     let number_collision: Rect<Number> = Rect::new(
-    //         (
-    //             self.collision_mask.position.x as i32,
-    //             self.collision_mask.position.y as i32,
-    //         )
-    //             .into(),
-    //         (
-    //             self.collision_mask.size.x as i32,
-    //             self.collision_mask.size.y as i32,
-    //         )
-    //             .into(),
-    //     );
-    //     let collider_center = self.position + number_collision.position;
-    //     let center_of_edge: Vector2D<Number> = (
-    //         collider_center.x + number_collision.size.x / 2,
-    //         collider_center.y * distance.to_raw().signum(),
-    //     )
-    //         .into();
-    //     let points: [Vector2D<Number>; 2] = [
-    //         (
-    //             center_of_edge.x,
-    //             center_of_edge.y + number_collision.size.y / 2,
-    //         )
-    //             .into(),
-    //         (
-    //             center_of_edge.x,
-    //             center_of_edge.y - number_collision.size.y / 2,
-    //         )
-    //             .into(),
-    //     ];
-
-    //     for edge_points in points {
-    //         let point = edge_points + (distance, 0.into()).into();
-    //         if let Some(collider) = collision(point) {
-    //             let center = collider.position + collider.size / 2;
-    //             let edge = center - collider.size.hadamard(direction) / 2;
-
-    //             if final_distance.magnitude_squared() > new_distance.magnitude_squared() {
-    //                 final_distance = new_distance;
-    //             }
-    //             has_collided = true;
-    //         }
-    //     }
-
-    //     ((0, 0).into(), false)
-    // }
 
     fn collision_in_direction(
         &mut self,
         direction: Vector2D<Number>,
         distance: Number,
         collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
-        print_debug: bool,
     ) -> (Vector2D<Number>, bool) {
         let number_collision: Rect<Number> = Rect::new(
             (
@@ -258,43 +196,9 @@ impl<'a> Entity<'a> {
                     final_distance = new_distance;
                 }
                 has_collided = true;
-                if print_debug {
-                    let final_pos = center_collision_point - new_distance;
-                    agb::println!(
-                    "direction: ({}, {}), distance: {}, point: ({}, {}), center: ({}, {}), edge: ({}, {}), my edge: ({}, {}), delta: ({}, {}), proposed edge: ({}, {})",
-                    direction.x,
-                    direction.y,
-                    distance,
-                    point.x,
-                    point.y,
-                    center.x,
-                    center.y,
-                    edge.x,
-                    edge.y,
-                    center_collision_point.x,
-                    center_collision_point.y,
-                    new_distance.x,
-                    new_distance.y,
-                    final_pos.x,
-                    final_pos.y
-                );
-                }
             }
         }
 
-        if !has_collided && print_debug {
-            let point = center_collision_point + original_distance;
-            agb::println!(
-                "No collision, direction: ({}, {}), distance: {}, center: ({}, {}), center_point + distance: ({}, {})",
-                direction.x,
-                direction.y,
-                distance,
-                center_collision_point.x,
-                center_collision_point.y,
-                point.x,
-                point.y
-            );
-        }
         (final_distance, has_collided)
     }
 
@@ -556,12 +460,9 @@ impl<'a> Player<'a> {
         self.entity.velocity.y += gravity;
 
         self.entity.update_position(level);
-        let (_, collided_down) = self.entity.collision_in_direction(
-            (0, 1).into(),
-            1.into(),
-            |v| level.collides(v, false),
-            false,
-        );
+        let (_, collided_down) = self
+            .entity
+            .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v));
 
         if collided_down {
             self.state = PlayerState::OnGround;
