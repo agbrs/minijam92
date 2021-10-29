@@ -164,6 +164,7 @@ impl<'a> Entity<'a> {
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum PlayerState {
     OnGround,
     InAir,
@@ -180,14 +181,29 @@ impl SwordState {
             SwordState::LongSword => 60,
         }
     }
+    fn jump_attack_duration(self) -> u16 {
+        match self {
+            SwordState::LongSword => 16,
+        }
+    }
     fn attack_frame(self, timer: u16) -> u16 {
         match self {
             SwordState::LongSword => (60 - timer) / 8,
         }
     }
+    fn jump_attack_frame(self, timer: u16) -> u16 {
+        match self {
+            SwordState::LongSword => (16 - timer) / 4,
+        }
+    }
     fn hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 7,
+        }
+    }
+    fn jump_attack_hold_frame(self) -> u16 {
+        match self {
+            SwordState::LongSword => 13,
         }
     }
 
@@ -196,9 +212,25 @@ impl SwordState {
             SwordState::LongSword => 20,
         }
     }
+    fn jump_attack_cooldown_time(self) -> u16 {
+        match self {
+            SwordState::LongSword => 20,
+        }
+    }
     fn to_sprite_id(self, frame: u16) -> u16 {
         match self {
             SwordState::LongSword => (16 + frame) * 4,
+        }
+    }
+    fn to_jump_sprite_id(self, frame: u16) -> u16 {
+        match self {
+            SwordState::LongSword => {
+                if frame == self.jump_attack_hold_frame() {
+                    frame * 4
+                } else {
+                    (24 + frame) * 4
+                }
+            }
         }
     }
     fn fudge(self, frame: u16) -> i32 {
@@ -269,71 +301,75 @@ impl<'a> Player<'a> {
         self.fudge_factor = (0, 0).into();
 
         match self.state {
-            PlayerState::OnGround => match &mut self.attack_timer {
-                AttackTimer::Idle => {
-                    self.entity.velocity.y = 0.into();
-                    if x != Tri::Zero {
-                        self.facing = x;
-                    }
-                    self.entity.sprite.set_hflip(self.facing == Tri::Negative);
-                    self.entity.velocity.x += Number::new(x as i32) / 4;
-                    if self.entity.velocity.x.abs() > Number::new(1) / 10 {
-                        if self.sprite_offset >= 6 * 4 {
+            PlayerState::OnGround => {
+                self.entity.velocity.y = 0.into();
+
+                match &mut self.attack_timer {
+                    AttackTimer::Idle => {
+                        if x != Tri::Zero {
+                            self.facing = x;
+                        }
+                        self.entity.sprite.set_hflip(self.facing == Tri::Negative);
+                        self.entity.velocity.x += Number::new(x as i32) / 4;
+                        if self.entity.velocity.x.abs() > Number::new(1) / 10 {
+                            if self.sprite_offset >= 6 * 4 {
+                                self.sprite_offset = 0;
+                            }
+
+                            self.entity
+                                .sprite
+                                .set_tile_id((4 + self.sprite_offset / 4) * 4);
+                        } else {
+                            if self.sprite_offset >= 4 * 8 {
+                                self.sprite_offset = 0;
+                            }
+
+                            self.entity
+                                .sprite
+                                .set_tile_id((0 + self.sprite_offset / 8) * 4);
+                        }
+                        self.state = if self
+                            .entity
+                            .collides_going_in_direction((0, 1).into(), 1.into())
+                        {
+                            PlayerState::OnGround
+                        } else {
+                            PlayerState::InAir
+                        };
+
+                        if buttons.is_just_pressed(Button::B) {
+                            self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
+                        } else if buttons.is_just_pressed(Button::A) {
+                            self.entity.velocity.y -= 2;
+                            self.state = PlayerState::InAir;
                             self.sprite_offset = 0;
                         }
-
+                    }
+                    AttackTimer::Attack(a) => {
+                        *a -= 1;
+                        let frame = self.sword.attack_frame(*a);
+                        self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
                         self.entity
                             .sprite
-                            .set_tile_id((4 + self.sprite_offset / 4) * 4);
-                    } else {
-                        if self.sprite_offset >= 4 * 8 {
-                            self.sprite_offset = 0;
+                            .set_tile_id(self.sword.to_sprite_id(frame));
+
+                        if *a == 0 {
+                            self.attack_timer = AttackTimer::Cooldown(self.sword.cooldown_time());
                         }
-
+                    }
+                    AttackTimer::Cooldown(a) => {
+                        *a -= 1;
+                        let frame = self.sword.hold_frame();
+                        self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
                         self.entity
                             .sprite
-                            .set_tile_id((0 + self.sprite_offset / 8) * 4);
-                    }
-                    self.state = if self
-                        .entity
-                        .collides_going_in_direction((0, 1).into(), 1.into())
-                    {
-                        PlayerState::OnGround
-                    } else {
-                        PlayerState::InAir
-                    };
-
-                    if buttons.is_just_pressed(Button::B) {
-                        self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
-                    } else if buttons.is_just_pressed(Button::A) {
-                        self.entity.velocity.y -= 2;
-                        self.state = PlayerState::InAir;
-                        self.sprite_offset = 0;
+                            .set_tile_id(self.sword.to_sprite_id(frame));
+                        if *a == 0 {
+                            self.attack_timer = AttackTimer::Idle;
+                        }
                     }
                 }
-                AttackTimer::Attack(a) => {
-                    *a -= 1;
-                    let frame = self.sword.attack_frame(*a);
-                    self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
-                    self.entity
-                        .sprite
-                        .set_tile_id(self.sword.to_sprite_id(frame));
-                    if *a == 0 {
-                        self.attack_timer = AttackTimer::Cooldown(self.sword.cooldown_time());
-                    }
-                }
-                AttackTimer::Cooldown(a) => {
-                    *a -= 1;
-                    let frame = self.sword.hold_frame();
-                    self.fudge_factor.x = self.sword.fudge(frame) * self.facing as i32;
-                    self.entity
-                        .sprite
-                        .set_tile_id(self.sword.to_sprite_id(frame));
-                    if *a == 0 {
-                        self.attack_timer = AttackTimer::Idle;
-                    }
-                }
-            },
+            }
             PlayerState::InAir => {
                 let gravity: Number = 1.into();
                 let gravity = gravity / 16;
@@ -347,18 +383,49 @@ impl<'a> Player<'a> {
                     PlayerState::InAir
                 };
 
-                if self.sprite_offset < 3 * 4 {
-                    self.entity
-                        .sprite
-                        .set_tile_id((10 + self.sprite_offset / 4) * 4);
-                } else if self.entity.velocity.y.abs() < Number::new(1) / 5 {
-                    self.entity.sprite.set_tile_id(13 * 4);
-                } else if self.entity.velocity.y > 1.into() {
-                    self.entity.sprite.set_tile_id(15 * 4);
-                } else if self.entity.velocity.y > 0.into() {
-                    self.entity.sprite.set_tile_id(14 * 4);
-                } else {
-                    self.entity.sprite.set_tile_id(12 * 4);
+                match &mut self.attack_timer {
+                    AttackTimer::Idle => {
+                        if self.sprite_offset < 3 * 4 {
+                            self.entity
+                                .sprite
+                                .set_tile_id((10 + self.sprite_offset / 4) * 4);
+                        } else if self.entity.velocity.y.abs() < Number::new(1) / 5 {
+                            self.entity.sprite.set_tile_id(13 * 4);
+                        } else if self.entity.velocity.y > 1.into() {
+                            self.entity.sprite.set_tile_id(15 * 4);
+                        } else if self.entity.velocity.y > 0.into() {
+                            self.entity.sprite.set_tile_id(14 * 4);
+                        } else {
+                            self.entity.sprite.set_tile_id(12 * 4);
+                        }
+
+                        if buttons.is_just_pressed(Button::B) {
+                            self.attack_timer =
+                                AttackTimer::Attack(self.sword.jump_attack_duration());
+                        }
+                    }
+                    AttackTimer::Attack(a) => {
+                        *a -= 1;
+                        let frame = self.sword.jump_attack_frame(*a);
+                        self.entity
+                            .sprite
+                            .set_tile_id(self.sword.to_jump_sprite_id(frame));
+
+                        if *a == 0 {
+                            self.attack_timer =
+                                AttackTimer::Cooldown(self.sword.jump_attack_cooldown_time());
+                        }
+                    }
+                    AttackTimer::Cooldown(a) => {
+                        *a -= 1;
+                        let frame = self.sword.jump_attack_hold_frame();
+                        self.entity
+                            .sprite
+                            .set_tile_id(self.sword.to_jump_sprite_id(frame));
+                        if *a == 0 || self.state == PlayerState::OnGround {
+                            self.attack_timer = AttackTimer::Idle;
+                        }
+                    }
                 }
             }
         }
