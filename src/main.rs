@@ -3,6 +3,7 @@
 
 use agb::{
     display::{
+        background::BackgroundRegular,
         object::{ObjectControl, ObjectStandard},
         Priority, HEIGHT, WIDTH,
     },
@@ -18,10 +19,49 @@ extern crate agb;
 
 type Number = FixedNum<8>;
 
+struct Level {
+    background: BackgroundRegular<'static>,
+    foreground: BackgroundRegular<'static>,
+}
+
+impl Level {
+    fn load_level(
+        mut backdrop: BackgroundRegular<'static>,
+        mut foreground: BackgroundRegular<'static>,
+    ) -> Level {
+        backdrop.set_position(Vector2D::new(0, 0));
+        backdrop.set_map(agb::display::background::Map::new(
+            tilemap::BACKGROUND_MAP,
+            Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
+            0,
+        ));
+        backdrop.set_priority(Priority::P0);
+
+        foreground.set_position(Vector2D::new(0, 0));
+        foreground.set_map(agb::display::background::Map::new(
+            tilemap::FOREGROUND_MAP,
+            Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
+            0,
+        ));
+        foreground.set_priority(Priority::P2);
+
+        backdrop.commit();
+        foreground.commit();
+
+        backdrop.show();
+        foreground.show();
+        Level {
+            background: backdrop,
+            foreground,
+        }
+    }
+}
+
 struct Game<'a> {
     player: Player<'a>,
     input: ButtonController,
     frame_count: u32,
+    level: Level,
 }
 
 struct Entity<'a> {
@@ -122,13 +162,6 @@ impl<'a> Entity<'a> {
         }
         self.sprite.commit();
     }
-}
-
-enum Direction {
-    North,
-    East,
-    South,
-    West,
 }
 
 enum PlayerState {
@@ -357,11 +390,12 @@ impl<'a> Game<'a> {
         GameStatus::Continue
     }
 
-    fn new(object: &ObjectControl) -> Game {
+    fn new(object: &ObjectControl, level: Level) -> Game {
         Game {
             player: Player::new(object),
             input: ButtonController::new(),
             frame_count: 0,
+            level,
         }
     }
 }
@@ -378,37 +412,19 @@ fn game_with_level(gba: &mut agb::Gba) {
     background.set_background_palettes(background::background.palettes);
     background.set_background_tilemap(0, background::background.tiles);
 
-    let mut backdrop = background.get_regular().unwrap();
-    backdrop.set_position(Vector2D::new(0, 0));
-    backdrop.set_map(agb::display::background::Map::new(
-        tilemap::BACKGROUND_MAP,
-        Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
-        0,
-    ));
-    backdrop.set_priority(Priority::P0);
-
-    let mut foreground = background.get_regular().unwrap();
-    foreground.set_position(Vector2D::new(0, 0));
-    foreground.set_map(agb::display::background::Map::new(
-        tilemap::FOREGROUND_MAP,
-        Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
-        0,
-    ));
-    foreground.set_priority(Priority::P2);
-
-    backdrop.commit();
-    foreground.commit();
-
-    backdrop.show();
-    foreground.show();
-
     object.enable();
     let object = object;
 
     let vblank = agb::interrupt::VBlank::get();
     vblank.wait_for_vblank();
 
-    let mut game = Game::new(&object);
+    let mut game = Game::new(
+        &object,
+        Level::load_level(
+            background.get_regular().unwrap(),
+            background.get_regular().unwrap(),
+        ),
+    );
 
     let mut mixer = gba.mixer.mixer();
     mixer.enable();
