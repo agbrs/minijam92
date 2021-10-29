@@ -12,6 +12,7 @@ use agb::{
 };
 
 agb::include_gfx!("gfx/objects.toml");
+agb::include_gfx!("gfx/background.toml");
 
 extern crate agb;
 
@@ -168,7 +169,7 @@ impl<'a> Player<'a> {
             .set_sprite_size(agb::display::object::Size::S16x16);
         entity.sprite.set_tile_id(0);
         entity.sprite.show();
-        entity.sprite.set_position((10, 10).into());
+        entity.position = (58, 26).into();
         entity.sprite.commit();
 
         Player {
@@ -313,6 +314,34 @@ fn game_with_level(gba: &mut agb::Gba) {
     object.set_sprite_tilemap(objects::objects.tiles);
 
     let mut background = gba.display.video.tiled0();
+
+    background.set_background_palettes(background::background.palettes);
+    background.set_background_tilemap(0, background::background.tiles);
+
+    let mut backdrop = background.get_regular().unwrap();
+    backdrop.set_position(Vector2D::new(0, 0));
+    backdrop.set_map(agb::display::background::Map::new(
+        tilemap::BACKGROUND_MAP,
+        Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
+        0,
+    ));
+    backdrop.set_priority(Priority::P0);
+
+    let mut foreground = background.get_regular().unwrap();
+    foreground.set_position(Vector2D::new(0, 0));
+    foreground.set_map(agb::display::background::Map::new(
+        tilemap::FOREGROUND_MAP,
+        Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
+        0,
+    ));
+    foreground.set_priority(Priority::P2);
+
+    backdrop.commit();
+    foreground.commit();
+
+    backdrop.show();
+    foreground.show();
+
     object.enable();
     let object = object;
 
@@ -333,6 +362,10 @@ fn game_with_level(gba: &mut agb::Gba) {
         mixer.vblank();
         game.advance_frame();
     }
+}
+
+mod tilemap {
+    include!(concat!(env!("OUT_DIR"), "/tilemap.rs"));
 }
 
 #[agb::entry]
