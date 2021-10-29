@@ -283,6 +283,7 @@ impl<'a> Player<'a> {
                     } else if buttons.is_just_pressed(Button::A) {
                         self.entity.velocity.y -= 2;
                         self.state = PlayerState::InAir;
+                        self.sprite_offset = 0;
                     }
                 }
                 AttackTimer::Attack(a) => {
@@ -320,6 +321,20 @@ impl<'a> Player<'a> {
                 } else {
                     PlayerState::InAir
                 };
+
+                if self.sprite_offset < 3 * 4 {
+                    self.entity
+                        .sprite
+                        .set_tile_id((10 + self.sprite_offset / 4) * 4);
+                } else if self.entity.velocity.y.abs() < Number::new(1) / 5 {
+                    self.entity.sprite.set_tile_id(13 * 4);
+                } else if self.entity.velocity.y > 1.into() {
+                    self.entity.sprite.set_tile_id(15 * 4);
+                } else if self.entity.velocity.y > 0.into() {
+                    self.entity.sprite.set_tile_id(14 * 4);
+                } else {
+                    self.entity.sprite.set_tile_id(12 * 4);
+                }
             }
         }
         self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
