@@ -6,7 +6,7 @@ use agb::{
         object::{ObjectControl, ObjectStandard},
         Priority,
     },
-    input::{ButtonController, Tri},
+    input::{Button, ButtonController, Tri},
     number::{FixedNum, FixedWidthSignedInteger, Rect, Vector2D},
     sound::mixer::SoundChannel,
 };
@@ -58,11 +58,18 @@ enum SwordState {
     LongSword,
 }
 
+enum AttackTimer {
+    Idle,
+    Attack(u16),
+    Cooldown(u16),
+}
+
 struct Player<'a> {
     entity: Entity<'a>,
     facing: Tri,
     state: PlayerState,
     sprite_offset: u16,
+    attack_timer: AttackTimer,
     sword: SwordState,
 }
 
@@ -86,43 +93,82 @@ impl<'a> Player<'a> {
             state: PlayerState::OnGround,
             sword: SwordState::LongSword,
             sprite_offset: 0,
+            attack_timer: AttackTimer::Idle,
         }
     }
 
     fn update(&mut self, buttons: &ButtonController) {
         let x = buttons.x_tri();
-        if x != Tri::Zero {
-            self.facing = x;
-        }
+
+        let mut position_fudge_factor: Vector2D<i32> = (0, 0).into();
 
         match self.state {
-            PlayerState::OnGround => {
-                self.entity.sprite.set_hflip(self.facing == Tri::Negative);
-                self.entity.velocity.x += Number::new(x as i32) / 4;
-                self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
+            PlayerState::OnGround => match &mut self.attack_timer {
+                AttackTimer::Idle => {
+                    if x != Tri::Zero {
+                        self.facing = x;
+                    }
+                    self.entity.sprite.set_hflip(self.facing == Tri::Negative);
+                    self.entity.velocity.x += Number::new(x as i32) / 4;
+                    if self.entity.velocity.x.abs() > Number::new(1) / 10 {
+                        if self.sprite_offset >= 6 * 4 {
+                            self.sprite_offset = 0;
+                        }
 
-                if self.entity.velocity.x.abs() > Number::new(1) / 10 {
-                    if self.sprite_offset >= 6 * 4 {
-                        self.sprite_offset = 0;
+                        self.entity
+                            .sprite
+                            .set_tile_id((4 + self.sprite_offset / 4) * 4);
+                    } else {
+                        if self.sprite_offset >= 4 * 8 {
+                            self.sprite_offset = 0;
+                        }
+
+                        self.entity
+                            .sprite
+                            .set_tile_id((0 + self.sprite_offset / 8) * 4);
                     }
 
-                    self.entity
-                        .sprite
-                        .set_tile_id((4 + self.sprite_offset / 4) * 4);
-                } else {
-                    if self.sprite_offset >= 4 * 8 {
-                        self.sprite_offset = 0;
+                    if buttons.is_just_pressed(Button::A) {
+                        self.attack_timer = AttackTimer::Attack(60);
                     }
-
-                    self.entity
-                        .sprite
-                        .set_tile_id((0 + self.sprite_offset / 8) * 4);
                 }
-            }
+                AttackTimer::Attack(a) => {
+                    *a -= 1;
+                    let sprite_id = (60 - *a) / 8;
+                    let x_fudge = match sprite_id {
+                        0 => 0,
+                        1 => 0,
+                        2 => -1,
+                        3 => -4,
+                        4 => -5,
+                        5 => -5,
+                        6 => -5,
+                        7 => -5,
+                        _ => unreachable!(),
+                    };
+                    position_fudge_factor.x = x_fudge * self.facing as i32;
+                    self.entity.sprite.set_tile_id((16 + sprite_id) * 4);
+                    if *a == 0 {
+                        self.attack_timer = AttackTimer::Cooldown(20);
+                    }
+                }
+                AttackTimer::Cooldown(a) => {
+                    *a -= 1;
+                    position_fudge_factor.x = -5 * self.facing as i32;
+                    if *a == 0 {
+                        self.attack_timer = AttackTimer::Idle;
+                    }
+                }
+            },
             PlayerState::Falling => {}
             PlayerState::Rising => {}
         }
+        self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
+
         self.entity.update_position();
+        self.entity
+            .sprite
+            .set_position(self.entity.position.floor() - position_fudge_factor);
 
         self.sprite_offset += 1;
     }
