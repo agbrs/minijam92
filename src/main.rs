@@ -56,11 +56,11 @@ impl Level {
         }
     }
 
-    fn collides(v: Vector2D<Number>) -> Option<Rect<Number>> {
+    fn collides(&self, v: Vector2D<Number>) -> Option<Rect<Number>> {
         let vf = v.floor();
         let (x, y) = (vf / 8).get();
-        if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y >= tilemap::HEIGHT as i32) {
-            return Some(Rect::new((x, y).into(), (8, 8).into()));
+        if (x < 0 || x > tilemap::WIDTH as i32) || (y < 0 || y > tilemap::HEIGHT as i32 - 20) {
+            return Some(Rect::new((x * 8, y * 8).into(), (8, 8).into()));
         }
         None
     }
@@ -92,9 +92,25 @@ impl<'a> Entity<'a> {
         }
     }
 
-    fn update_position(&mut self) {
-        self.position += self.velocity;
-        self.sprite.set_position(self.position.floor());
+    fn update_position(&mut self, level: &Level) -> Vector2D<Number> {
+        let initial_position = self.position;
+
+        let y = self.velocity.y.to_raw().signum();
+        if y != 0 {
+            let delta = self.collision_in_direction((0, y).into(), self.velocity.y.abs(), |v| {
+                level.collides(v)
+            });
+            self.position += delta;
+        }
+        let x = self.velocity.x.to_raw().signum();
+        if x != 0 {
+            let delta = self.collision_in_direction((x, 0).into(), self.velocity.x.abs(), |v| {
+                level.collides(v)
+            });
+            self.position += delta;
+        }
+
+        self.position - initial_position
     }
 
     fn collision_in_direction(
@@ -135,7 +151,7 @@ impl<'a> Entity<'a> {
             if let Some(collider) = collision(point) {
                 let center = collider.position + collider.size / 2;
                 let edge = center - collider.size.hadamard(direction) / 2;
-                final_distance = original_distance - (edge - point).hadamard(direction);
+                final_distance = original_distance - (point - edge).hadamard(direction);
             }
         }
 
@@ -285,7 +301,7 @@ impl<'a> Player<'a> {
         }
     }
 
-    fn update(&mut self, buttons: &ButtonController) {
+    fn update(&mut self, buttons: &ButtonController, level: &Level) {
         let x = buttons.x_tri();
 
         self.fudge_factor = (0, 0).into();
@@ -318,14 +334,6 @@ impl<'a> Player<'a> {
                                 .sprite
                                 .set_tile_id((0 + self.sprite_offset / 8) * 4);
                         }
-                        self.state = if self
-                            .entity
-                            .collides_going_in_direction((0, 1).into(), 1.into())
-                        {
-                            PlayerState::OnGround
-                        } else {
-                            PlayerState::InAir
-                        };
 
                         if buttons.is_just_pressed(Button::B) {
                             self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
@@ -364,14 +372,6 @@ impl<'a> Player<'a> {
                 let gravity: Number = 1.into();
                 let gravity = gravity / 16;
                 self.entity.velocity.y += gravity;
-                self.state = if self
-                    .entity
-                    .collides_going_in_direction((0, 1).into(), 1.into())
-                {
-                    PlayerState::OnGround
-                } else {
-                    PlayerState::InAir
-                };
 
                 match &mut self.attack_timer {
                     AttackTimer::Idle => {
@@ -421,7 +421,19 @@ impl<'a> Player<'a> {
         }
         self.entity.velocity.x = self.entity.velocity.x * 40 / 64;
 
-        self.entity.update_position();
+        self.entity.update_position(level);
+
+        if self
+            .entity
+            .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v))
+            .y
+            .abs()
+            < 1.into()
+        {
+            self.state = PlayerState::OnGround;
+        } else {
+            self.state = PlayerState::InAir;
+        }
 
         self.sprite_offset += 1;
     }
@@ -441,7 +453,7 @@ enum GameStatus {
 impl<'a> Game<'a> {
     fn advance_frame(&mut self) -> GameStatus {
         self.input.update();
-        self.player.update(&self.input);
+        self.player.update(&self.input, &self.level);
         self.player.commit((0, 0).into());
         self.frame_count += 1;
         GameStatus::Continue
