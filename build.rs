@@ -23,6 +23,15 @@ fn main() {
     let foreground_layer = &map.layers[1];
     let foreground_tiles = extract_tiles(&foreground_layer.tiles);
 
+    let slime_spawns = map.object_groups[0]
+        .objects
+        .iter()
+        .filter(|object| &object.obj_type == "Slime Spawn")
+        .map(|object| (object.x as u16, object.y as u16))
+        .collect::<Vec<_>>();
+    let slimes_x = slime_spawns.iter().map(|pos| pos.0);
+    let slimes_y = slime_spawns.iter().map(|pos| pos.1);
+
     let mut tile_types = HashMap::new();
 
     for tile in map.tilesets[0].tiles.iter() {
@@ -39,6 +48,9 @@ fn main() {
         pub const FOREGROUND_MAP: &[u16] = &[#(#foreground_tiles),*];
         pub const WIDTH: u32 = #width;
         pub const HEIGHT: u32 = #height;
+
+        pub const SLIME_SPAWNS_X: &[u16] = &[#(#slimes_x),*];
+        pub const SLIME_SPAWNS_Y: &[u16] = &[#(#slimes_y),*];
 
         pub const TILE_TYPES: &[u8] = &[#(#tile_types),*];
     };

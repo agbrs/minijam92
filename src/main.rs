@@ -26,6 +26,8 @@ type Number = FixedNum<8>;
 struct Level {
     background: BackgroundRegular<'static>,
     foreground: BackgroundRegular<'static>,
+
+    slime_spawns: Vec<(u16, u16)>,
 }
 
 impl Level {
@@ -54,9 +56,18 @@ impl Level {
 
         backdrop.show();
         foreground.show();
+
+        let slime_spawns = tilemap::SLIME_SPAWNS_X
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (*x, tilemap::SLIME_SPAWNS_Y[i]))
+            .collect();
+
         Self {
             background: backdrop,
             foreground,
+
+            slime_spawns,
         }
     }
 
@@ -554,8 +565,15 @@ impl<'a> Game<'a> {
     }
 
     fn new(object: &'a ObjectControl, level: Level) -> Self {
-        let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
-        slime.entity.position = (100, 50).into();
+        let slimes = level
+            .slime_spawns
+            .iter()
+            .map(|slime_spawn| {
+                let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
+                slime.entity.position = (slime_spawn.0 as i32, slime_spawn.1 as i32 - 7).into();
+                slime
+            })
+            .collect();
 
         Self {
             player: Player::new(object),
@@ -563,7 +581,7 @@ impl<'a> Game<'a> {
             frame_count: 0,
             level,
 
-            enemies: vec![slime],
+            enemies: slimes,
         }
     }
 }
