@@ -25,6 +25,7 @@ type Number = FixedNum<8>;
 struct Level {
     background: BackgroundRegular<'static>,
     foreground: BackgroundRegular<'static>,
+    clouds: BackgroundRegular<'static>,
 
     slime_spawns: Vec<(u16, u16)>,
 }
@@ -33,6 +34,7 @@ impl Level {
     fn load_level(
         mut backdrop: BackgroundRegular<'static>,
         mut foreground: BackgroundRegular<'static>,
+        mut clouds: BackgroundRegular<'static>,
     ) -> Self {
         backdrop.set_position(Vector2D::new(0, 0));
         backdrop.set_map(agb::display::background::Map::new(
@@ -50,11 +52,21 @@ impl Level {
         ));
         foreground.set_priority(Priority::P2);
 
+        clouds.set_position(Vector2D::new(0, 0));
+        clouds.set_map(agb::display::background::Map::new(
+            tilemap::CLOUD_MAP,
+            Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
+            0,
+        ));
+        clouds.set_priority(Priority::P3);
+
         backdrop.commit();
         foreground.commit();
+        clouds.commit();
 
         backdrop.show();
         foreground.show();
+        clouds.show();
 
         let slime_spawns = tilemap::SLIME_SPAWNS_X
             .iter()
@@ -65,6 +77,7 @@ impl Level {
         Self {
             background: backdrop,
             foreground,
+            clouds,
 
             slime_spawns,
         }
@@ -839,6 +852,7 @@ fn game_with_level(gba: &mut agb::Gba) {
     let mut game = Game::new(
         &object,
         Level::load_level(
+            background.get_regular().unwrap(),
             background.get_regular().unwrap(),
             background.get_regular().unwrap(),
         ),
