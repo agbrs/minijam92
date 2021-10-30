@@ -72,4 +72,8 @@ impl<'a> Sfx<'a> {
     pub fn player_hurt(&mut self) {
         self.mixer.play_sound(SoundChannel::new(PLAYER_GETS_HIT));
     }
+
+    pub fn player_heal(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_HEAL));
+    }
 }

@@ -1152,6 +1152,7 @@ impl<'a> Game<'a> {
                 }
                 UpdateInstruction::HealPlayerAndRemove => {
                     self.player.heal();
+                    sfx.player_heal();
                     remove.push(idx);
                 }
                 UpdateInstruction::DamagePlayer => {
@@ -1199,6 +1200,7 @@ impl<'a> Game<'a> {
                 UpdateInstruction::Remove => remove.push(idx),
                 UpdateInstruction::HealPlayerAndRemove => {
                     self.player.heal();
+                    sfx.player_heal();
                     remove.push(idx);
                 }
                 UpdateInstruction::DamagePlayer => {
