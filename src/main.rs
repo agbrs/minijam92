@@ -1142,6 +1142,19 @@ impl<'a> Game<'a> {
     ) -> GameStatus {
         let mut state = GameStatus::Continue;
 
+        self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
+
+        if self.player.entity.position.x < self.offset.x {
+            let (alive, damaged) = self.player.damage();
+            if !alive {
+                state = GameStatus::Lost;
+            }
+            if damaged {
+                sfx.player_hurt();
+                self.shake_time += 20;
+            }
+        }
+
         let mut this_frame_offset = self.offset;
         if self.shake_time > 0 {
             let size = self.shake_time.min(4) as i32;
@@ -1209,8 +1222,12 @@ impl<'a> Game<'a> {
         self.level
             .foreground
             .set_position(this_frame_offset.floor());
+        self.level
+            .clouds
+            .set_position(this_frame_offset.floor() / 4);
         self.level.background.commit();
         self.level.foreground.commit();
+        self.level.clouds.commit();
 
         for i in remove {
             self.enemies.remove(i);
@@ -1241,7 +1258,7 @@ impl<'a> Game<'a> {
             }
             particle
                 .entity
-                .commit_with_fudge((0, 0).into(), (0, 0).into());
+                .commit_with_fudge(this_frame_offset, (0, 0).into());
         }
 
         for i in remove {
