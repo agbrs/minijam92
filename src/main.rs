@@ -622,6 +622,7 @@ impl<'a> Player<'a> {
 
                         if buttons.is_just_pressed(Button::B) && self.sword != SwordState::LongSword
                         {
+                            sfx.sword();
                             self.attack_timer =
                                 AttackTimer::Attack(self.sword.jump_attack_duration());
                         }
