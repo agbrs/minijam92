@@ -1197,11 +1197,12 @@ struct FollowingBoss<'a> {
 }
 
 impl<'a> FollowingBoss<'a> {
-    fn new(object_controller: &'a ObjectControl) -> Self {
+    fn new(object_controller: &'a ObjectControl, position: Vector2D<Number>) -> Self {
         let mut entity = Entity::new(
             object_controller,
             Rect::new((0_u16, 0_u16).into(), (0_u16, 0_u16).into()),
         );
+        entity.position = position;
         entity
             .sprite
             .set_sprite_size(agb::display::object::Size::S16x16);
@@ -1217,14 +1218,14 @@ impl<'a> FollowingBoss<'a> {
 
         if self.following {
             self.entity.velocity = difference / 16;
-            if difference.manhattan_distance() < 5.into() {
+            if difference.manhattan_distance() < 20.into() {
                 self.following = false;
             }
             let frame = (self.timer / 8) % 12;
             self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
         } else {
             self.entity.velocity = (0, 0).into();
-            if difference.manhattan_distance() > 40.into() {
+            if difference.manhattan_distance() > 60.into() {
                 self.following = true;
             }
             let frame = (self.timer / 16) % 12;
@@ -1434,7 +1435,11 @@ impl<'a> Game<'a> {
             }
             MoveState::FollowingPlayer => {
                 let difference = self.player.entity.position.x - (self.offset.x + WIDTH / 2);
-                self.offset.x += difference / 3;
+
+                self.offset.x += difference / 8;
+                if self.offset.x > (tilemap::WIDTH as i32 * 8 - 240).into() {
+                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+                }
             }
         }
 
@@ -1444,7 +1449,11 @@ impl<'a> Game<'a> {
         {
             BossInstruction::Dead => {
                 sfx.sunrise();
-                self.boss = BossState::Following(FollowingBoss::new(object_controller));
+                let location = match &self.boss {
+                    BossState::Active(b) => b.entity.position,
+                    _ => unreachable!(),
+                };
+                self.boss = BossState::Following(FollowingBoss::new(object_controller, location));
                 self.move_state = MoveState::FollowingPlayer;
             }
             BossInstruction::None => {}
