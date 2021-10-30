@@ -635,8 +635,8 @@ impl SlimeData {
                 }
             }
             SlimeState::Dead(count) => {
-                if *count < 60 {
-                    entity.sprite.set_tile_id((36 + *count / 12) * 4);
+                if *count < 5 * 4 {
+                    entity.sprite.set_tile_id((36 + *count / 4) * 4);
                     *count += 1;
                 } else {
                     entity.visible = false;
