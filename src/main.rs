@@ -1175,8 +1175,12 @@ impl<'a> Game<'a> {
                     remove.push(idx);
                 }
                 UpdateInstruction::DamagePlayer => {
-                    if !self.player.damage() {
+                    let (alive, damaged) = self.player.damage();
+                    if !alive {
                         state = GameStatus::Lost;
+                    }
+                    if damaged {
+                        self.shake_time += 20;
                     }
                 }
                 UpdateInstruction::CreateParticle(_, _) => {}
