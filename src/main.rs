@@ -732,6 +732,7 @@ impl BatData {
                 }
             }
             BatState::Dead => {
+                entity.sprite.set_tile_id(87 * 4);
                 let gravity: Number = 1.into();
                 let gravity = gravity / 16;
                 entity.velocity.x = 0.into();
