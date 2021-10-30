@@ -1124,6 +1124,232 @@ enum GameStatus {
     Won,
 }
 
+enum BossState<'a> {
+    NotSpawned,
+    Active(Boss<'a>),
+    Following(FollowingBoss<'a>),
+}
+
+impl<'a> BossState<'a> {
+    fn update(
+        &mut self,
+        enemies: &mut Arena<Enemy<'a>>,
+        object_controller: &'a ObjectControl,
+        player: &Player,
+    ) {
+        match self {
+            BossState::Active(boss) => {
+                boss.update(enemies, object_controller, player);
+            }
+            BossState::Following(boss) => {
+                boss.update(player);
+            }
+            BossState::NotSpawned => {}
+        }
+    }
+    fn commit(&mut self, offset: Vector2D<Number>) {
+        match self {
+            BossState::Active(boss) => {
+                boss.commit(offset);
+            }
+            BossState::Following(boss) => {
+                boss.commit(offset);
+            }
+            BossState::NotSpawned => {}
+        }
+    }
+}
+
+struct FollowingBoss<'a> {
+    entity: Entity<'a>,
+    following: bool,
+    timer: u32,
+}
+
+impl<'a> FollowingBoss<'a> {
+    fn new(object_controller: &'a ObjectControl) -> Self {
+        let mut entity = Entity::new(
+            object_controller,
+            Rect::new((0_u16, 0_u16).into(), (0_u16, 0_u16).into()),
+        );
+        entity
+            .sprite
+            .set_sprite_size(agb::display::object::Size::S16x16);
+        Self {
+            entity,
+            following: true,
+            timer: 0,
+        }
+    }
+    fn update(&mut self, player: &Player) {
+        let difference = player.entity.position - self.entity.position;
+        self.timer += 1;
+
+        if self.following {
+            self.entity.velocity = difference / 3;
+            if difference.manhattan_distance() < 2.into() {
+                self.following = false;
+            }
+            let frame = (self.timer / 8) % 12;
+            self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
+        } else {
+            self.entity.velocity = (0, 0).into();
+            if difference.manhattan_distance() > 20.into() {
+                self.following = true;
+            }
+            let frame = (self.timer / 16) % 12;
+            self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
+        }
+        self.entity.update_position_without_collision();
+    }
+
+    fn commit(&mut self, offset: Vector2D<Number>) {
+        self.entity.commit_with_fudge(offset, (0, 0).into());
+    }
+}
+
+enum BossActiveState {
+    Damaged(u8),
+    MovingToTarget,
+    WaitingUntilExplosion(u8),
+    WaitingUntilDamaged,
+}
+
+struct Boss<'a> {
+    entity: Entity<'a>,
+    health: u8,
+    target_location: u8,
+    state: BossActiveState,
+    timer: u32,
+    screen_coords: Vector2D<Number>,
+}
+
+enum BossInstruction {
+    None,
+    Dead,
+}
+
+impl<'a> Boss<'a> {
+    fn new(object_controller: &'a ObjectControl, screen_coords: Vector2D<Number>) -> Self {
+        let mut entity = Entity::new(
+            object_controller,
+            Rect::new((0_u16, 0_u16).into(), (28_u16, 28_u16).into()),
+        );
+        entity
+            .sprite
+            .set_sprite_size(agb::display::object::Size::S32x32);
+        entity.sprite.set_palette(1);
+        entity.position = screen_coords + (140, 100).into();
+        Self {
+            entity,
+            health: 5,
+            target_location: get_random().rem_euclid(5) as u8,
+            state: BossActiveState::Damaged(60),
+            timer: 0,
+            screen_coords,
+        }
+    }
+    fn update(
+        &mut self,
+        enemies: &mut Arena<Enemy<'a>>,
+        object_controller: &'a ObjectControl,
+        player: &Player,
+    ) -> BossInstruction {
+        let mut instruction = BossInstruction::None;
+        match &mut self.state {
+            BossActiveState::Damaged(time) => {
+                *time -= 1;
+                if *time == 0 {
+                    self.target_location = self.get_next_target_location();
+                    self.state = BossActiveState::MovingToTarget;
+                    if self.health == 0 {
+                        instruction = BossInstruction::Dead;
+                    }
+                }
+            }
+            BossActiveState::MovingToTarget => {
+                let target = self.get_target_location() + self.screen_coords;
+                let difference = target - self.entity.position;
+                if difference.manhattan_distance() < 1.into() {
+                    self.state = BossActiveState::WaitingUntilExplosion(60);
+                } else {
+                    self.entity.velocity = difference / 8;
+                }
+            }
+            BossActiveState::WaitingUntilExplosion(time) => {
+                *time -= 1;
+                if *time == 0 {
+                    self.explode(enemies, object_controller);
+                    self.state = BossActiveState::WaitingUntilDamaged
+                }
+            }
+            BossActiveState::WaitingUntilDamaged => {
+                if let Some(hurt) = &player.hurtbox {
+                    if hurt.touches(self.entity.collider()) {
+                        self.health -= 1;
+                        self.state = BossActiveState::Damaged(30);
+                    }
+                }
+            }
+        }
+        let animation_rate = match self.state {
+            BossActiveState::Damaged(_) => 6,
+            BossActiveState::MovingToTarget => 4,
+            BossActiveState::WaitingUntilExplosion(_) => 3,
+            BossActiveState::WaitingUntilDamaged => 8,
+        };
+        self.timer += 1;
+        let frame = (self.timer / animation_rate) % 12;
+        self.entity.sprite.set_tile_id(784 + (frame as u16) * 16);
+
+        self.entity.update_position_without_collision();
+        instruction
+    }
+    fn commit(&mut self, offset: Vector2D<Number>) {
+        self.entity.commit_with_fudge(offset, (0, 0).into());
+    }
+    fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
+        // slimes
+        for _ in 0..4 {
+            let x_velocity: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
+            let y_velocity: Number = -Number::from_raw(get_random()).rem_euclid(1.into());
+            let mut slime = Enemy::new(object_controller, EnemyData::Slime(SlimeData::new()));
+            slime.entity.position = self.entity.position;
+            slime.entity.velocity = (x_velocity, y_velocity).into();
+            enemies.insert(slime);
+        }
+
+        // bats
+        for _ in 0..4 {
+            let x_velocity: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
+            let y_velocity: Number = -Number::from_raw(get_random()).rem_euclid(1.into());
+            let mut bat = Enemy::new(object_controller, EnemyData::Bat(BatData::new()));
+            bat.entity.position = self.entity.position;
+            bat.entity.velocity = (x_velocity, y_velocity).into();
+            enemies.insert(bat);
+        }
+    }
+
+    fn get_next_target_location(&self) -> u8 {
+        loop {
+            let a = get_random().rem_euclid(5) as u8;
+            if a != self.target_location {
+                break a;
+            }
+        }
+    }
+    fn get_target_location(&self) -> Vector2D<Number> {
+        match self.target_location {
+            0 => (240 / 4, 160 / 4).into(),
+            1 => (3 * 240 / 4, 160 / 4).into(),
+            2 => (240 / 4, 3 * 160 / 4).into(),
+            3 => (3 * 240 / 4, 3 * 160 / 4).into(),
+            4 => (240 / 2, 160 / 2).into(),
+            _ => unreachable!(),
+        }
+    }
+}
+
 struct Game<'a> {
     player: Player<'a>,
     input: ButtonController,
@@ -1136,9 +1362,24 @@ struct Game<'a> {
     particles: Arena<Particle<'a>>,
     slime_load: usize,
     bat_load: usize,
+    boss: BossState<'a>,
+    move_state: MoveState,
+}
+
+enum MoveState {
+    Advancing,
+    PinnedAtEnd,
+    FollowingPlayer,
 }
 
 impl<'a> Game<'a> {
+    fn has_just_reached_end(&self) -> bool {
+        match self.boss {
+            BossState::NotSpawned => self.offset.x.floor() + 240 >= tilemap::WIDTH as i32 * 8,
+            _ => false,
+        }
+    }
+
     fn advance_frame(
         &mut self,
         object_controller: &'a ObjectControl,
@@ -1146,7 +1387,28 @@ impl<'a> Game<'a> {
     ) -> GameStatus {
         let mut state = GameStatus::Continue;
 
-        self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
+        match self.move_state {
+            MoveState::Advancing => {
+                self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
+
+                if self.has_just_reached_end() {
+                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+                    self.move_state = MoveState::PinnedAtEnd;
+                    self.boss = BossState::Active(Boss::new(object_controller, self.offset))
+                }
+            }
+            MoveState::PinnedAtEnd => {
+                self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+            }
+            MoveState::FollowingPlayer => {
+                let difference = self.player.entity.position.x - self.offset.x;
+                self.offset.x += difference / 3;
+            }
+        }
+
+        self.boss
+            .update(&mut self.enemies, object_controller, &self.player);
+
         self.load_enemies(object_controller);
 
         if self.player.entity.position.x < self.offset.x - 8 {
@@ -1182,8 +1444,6 @@ impl<'a> Game<'a> {
             }
             _ => {}
         }
-
-        self.player.commit((0, 0).into());
 
         let mut remove = Vec::with_capacity(10);
         for (idx, enemy) in self.enemies.iter_mut() {
@@ -1225,6 +1485,7 @@ impl<'a> Game<'a> {
         }
 
         self.player.commit(this_frame_offset);
+        self.boss.commit(this_frame_offset);
 
         self.level
             .background
@@ -1319,14 +1580,20 @@ impl<'a> Game<'a> {
             slime_load: 0,
             bat_load: 0,
             particles: Arena::with_capacity(30),
+            boss: BossState::NotSpawned,
+            move_state: MoveState::Advancing,
         }
     }
 }
 
 fn game_with_level(gba: &mut agb::Gba) {
     let mut object = gba.display.object.get();
-    object.set_sprite_palettes(objects::objects.palettes);
+    object.set_sprite_palettes(&[
+        objects::objects.palettes[0].clone(),
+        objects::boss.palettes[0].clone(),
+    ]);
     object.set_sprite_tilemap(objects::objects.tiles);
+    object.set_sprite_tilemap_at_idx(8192 - objects::boss.tiles.len(), objects::boss.tiles);
 
     let mut background = gba.display.video.tiled0();
 
