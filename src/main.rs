@@ -120,6 +120,8 @@ struct Game<'a> {
     input: ButtonController,
     frame_count: u32,
     level: Level,
+    offset: Vector2D<Number>,
+    shake_time: u16,
 
     enemies: Arena<Enemy<'a>>,
     particles: Arena<Particle<'a>>,
@@ -677,9 +679,9 @@ impl<'a> Player<'a> {
     }
 
     // retuns true if the player is alive and false otherwise
-    fn damage(&mut self) -> bool {
+    fn damage(&mut self) -> (bool, bool) {
         if self.damage_cooldown != 0 {
-            return true;
+            return (true, false);
         }
 
         self.damage_cooldown = 120;
@@ -689,9 +691,9 @@ impl<'a> Player<'a> {
         };
         if let Some(sword) = new_sword {
             self.sword = sword;
-            true
+            (true, true)
         } else {
-            false
+            (false, true)
         }
     }
 
@@ -1091,6 +1093,18 @@ impl<'a> Game<'a> {
     fn advance_frame(&mut self, object_controller: &'a ObjectControl) -> GameStatus {
         let mut state = GameStatus::Continue;
 
+        let mut this_frame_offset = self.offset;
+        if self.shake_time > 0 {
+            let size = self.shake_time.min(4) as i32;
+            let offset: Vector2D<Number> = (
+                Number::from_raw(get_random()) % size - Number::new(size) / 2,
+                Number::from_raw(get_random()) % size - Number::new(size) / 2,
+            )
+                .into();
+            this_frame_offset += offset;
+            self.shake_time -= 1;
+        }
+
         self.input.update();
         match self.player.update(&self.input, &self.level) {
             UpdateInstruction::CreateParticle(data, position) => {
@@ -1105,7 +1119,6 @@ impl<'a> Game<'a> {
         self.player.commit((0, 0).into());
 
         let mut remove = Vec::with_capacity(10);
-
         for (idx, enemy) in self.enemies.iter_mut() {
             match enemy.update(&self.player, &self.level) {
                 UpdateInstruction::Remove => {
@@ -1116,8 +1129,12 @@ impl<'a> Game<'a> {
                     remove.push(idx);
                 }
                 UpdateInstruction::DamagePlayer => {
-                    if !self.player.damage() {
+                    let (alive, damaged) = self.player.damage();
+                    if !alive {
                         state = GameStatus::Lost;
+                    }
+                    if damaged {
+                        self.shake_time += 20;
                     }
                 }
                 UpdateInstruction::CreateParticle(data, position) => {
@@ -1128,8 +1145,21 @@ impl<'a> Game<'a> {
                 }
                 UpdateInstruction::None => {}
             }
-            enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
+            enemy
+                .entity
+                .commit_with_fudge(this_frame_offset, (0, 0).into());
         }
+
+        self.player.commit(this_frame_offset);
+
+        self.level
+            .background
+            .set_position(this_frame_offset.floor());
+        self.level
+            .foreground
+            .set_position(this_frame_offset.floor());
+        self.level.background.commit();
+        self.level.foreground.commit();
 
         for i in remove {
             self.enemies.remove(i);
@@ -1188,6 +1218,8 @@ impl<'a> Game<'a> {
             input: ButtonController::new(),
             frame_count: 0,
             level,
+            offset: (0, 0).into(),
+            shake_time: 0,
 
             enemies,
             particles: Arena::with_capacity(30),
