@@ -259,7 +259,7 @@ enum PlayerState {
     InAir,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum SwordState {
     LongSword,
     ShortSword,
@@ -417,7 +417,7 @@ fn long_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
         5 => Some(Rect::new((6, 5).into(), (10, 9).into())),
         6 => Some(Rect::new((6, 5).into(), (10, 9).into())),
         7 => Some(Rect::new((6, 5).into(), (10, 9).into())),
-        _ => unreachable!(),
+        _ => None,
     }
 }
 
@@ -431,7 +431,7 @@ fn short_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
         5 => Some(Rect::new((8, 7).into(), (7, 7).into())),
         6 => Some(Rect::new((8, 5).into(), (7, 8).into())),
         7 => Some(Rect::new((8, 4).into(), (4, 7).into())),
-        _ => unreachable!(),
+        _ => None,
     }
 }
 
@@ -445,7 +445,7 @@ fn short_sword_fudge(frame: u16) -> i32 {
         5 => 3,
         6 => 3,
         7 => 3,
-        _ => unreachable!(),
+        _ => 0,
     }
 }
 
@@ -459,7 +459,7 @@ fn long_sword_fudge(frame: u16) -> i32 {
         5 => 5,
         6 => 5,
         7 => 4,
-        _ => unreachable!(),
+        _ => 0,
     }
 }
 
@@ -597,7 +597,8 @@ impl<'a> Player<'a> {
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
                         self.entity.velocity.x += self.sword.air_move_force() * x as i32;
 
-                        if buttons.is_just_pressed(Button::B) {
+                        if buttons.is_just_pressed(Button::B) && self.sword != SwordState::LongSword
+                        {
                             self.attack_timer =
                                 AttackTimer::Attack(self.sword.jump_attack_duration());
                         }
