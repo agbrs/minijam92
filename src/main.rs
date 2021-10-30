@@ -649,10 +649,10 @@ impl<'a> Player<'a> {
             .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v));
 
         if collided_down {
-            if self.state == PlayerState::InAir {
+            if self.state == PlayerState::InAir && self.entity.velocity.y > 2.into() {
                 instruction = UpdateInstruction::CreateParticle(
                     ParticleData::new_dust(),
-                    self.entity.position,
+                    self.entity.position + (2 * self.facing as i32, 0).into(),
                 );
             }
 
@@ -961,18 +961,18 @@ impl ParticleData {
 
     fn tile_id(&self) -> u16 {
         match self {
-            ParticleData::Dust(frame) => 70,
+            ParticleData::Dust(_) => 70,
         }
     }
 
     fn update(&mut self, entity: &mut Entity, _player: &Player, _level: &Level) -> bool {
         match self {
             ParticleData::Dust(frame) => {
-                if *frame == 8 {
+                if *frame == 8 * 3 {
                     return true;
                 }
 
-                entity.sprite.set_tile_id((70 + *frame) * 4);
+                entity.sprite.set_tile_id((70 + *frame / 3) * 4);
 
                 *frame += 1;
                 return false;
