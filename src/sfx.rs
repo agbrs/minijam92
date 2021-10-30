@@ -68,4 +68,8 @@ impl<'a> Sfx<'a> {
         let channel = SoundChannel::new(SLIME_DEATH);
         self.mixer.play_sound(channel);
     }
+
+    pub fn player_hurt(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_GETS_HIT));
+    }
 }

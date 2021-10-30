@@ -1160,6 +1160,7 @@ impl<'a> Game<'a> {
                         state = GameStatus::Lost;
                     }
                     if damaged {
+                        sfx.player_hurt();
                         self.shake_time += 20;
                     }
                 }
@@ -1206,6 +1207,7 @@ impl<'a> Game<'a> {
                         state = GameStatus::Lost;
                     }
                     if damaged {
+                        sfx.player_hurt();
                         self.shake_time += 20;
                     }
                 }
