@@ -659,7 +659,7 @@ struct BatData {
 
 enum BatState {
     Idle,
-    //Chasing(u16),
+    Chasing(u16),
 }
 
 struct SlimeData {
@@ -684,6 +684,32 @@ impl BatData {
                 }
 
                 entity.sprite.set_tile_id((78 + self.sprite_offset / 8) * 4);
+
+                if (entity.position - player.entity.position).manhattan_distance() < 50.into() {
+                    self.bat_state = BatState::Chasing(300);
+                    self.sprite_offset /= 4;
+                }
+            }
+            BatState::Chasing(count) => {
+                self.sprite_offset += 1;
+
+                let speed = Number::new(1) / Number::new(4);
+                let target_velocity = (player.entity.position - entity.position);
+                entity.velocity = target_velocity.normalise() * speed;
+
+                if self.sprite_offset >= 9 * 2 {
+                    self.sprite_offset = 0;
+                }
+                entity.sprite.set_tile_id((78 + self.sprite_offset / 2) * 4);
+
+                entity.update_position(level);
+
+                if *count == 0 {
+                    self.bat_state = BatState::Idle;
+                    self.sprite_offset *= 4;
+                } else {
+                    *count -= 1;
+                }
             }
         }
     }
