@@ -200,7 +200,7 @@ impl<'a> Entity<'a> {
             number_collision.position + number_collision.size.hadamard(direction) / 2;
 
         let direction_transpose: Vector2D<Number> = direction.swap();
-        let small = direction_transpose * Number::new(1) / 64;
+        let small = direction_transpose * Number::new(4) / 64;
         let triple_collider: [Vector2D<Number>; 2] = [
             center_collision_point + number_collision.size.hadamard(direction_transpose) / 2
                 - small,
@@ -263,6 +263,24 @@ enum SwordState {
 }
 
 impl SwordState {
+    fn ground_walk_force(self) -> Number {
+        match self {
+            SwordState::LongSword => Number::new(4) / 16,
+            SwordState::ShortSword => Number::new(5) / 16,
+        }
+    }
+    fn jump_impulse(self) -> Number {
+        match self {
+            SwordState::LongSword => Number::new(32) / 16,
+            SwordState::ShortSword => Number::new(35) / 16,
+        }
+    }
+    fn air_move_force(self) -> Number {
+        match self {
+            SwordState::LongSword => Number::new(4) / 256,
+            SwordState::ShortSword => Number::new(5) / 256,
+        }
+    }
     fn idle_animation(self, counter: &mut u16) -> u16 {
         match self {
             SwordState::LongSword => {
@@ -499,7 +517,7 @@ impl<'a> Player<'a> {
                             self.facing = x;
                         }
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
-                        self.entity.velocity.x += Number::new(x as i32) / 4;
+                        self.entity.velocity.x += self.sword.ground_walk_force() * x as i32;
                         if self.entity.velocity.x.abs() > Number::new(1) / 10 {
                             self.entity
                                 .sprite
@@ -513,7 +531,7 @@ impl<'a> Player<'a> {
                         if buttons.is_just_pressed(Button::B) {
                             self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
                         } else if buttons.is_just_pressed(Button::A) {
-                            self.entity.velocity.y -= 2;
+                            self.entity.velocity.y -= self.sword.jump_impulse();
                             self.state = PlayerState::InAir;
                             self.sprite_offset = 0;
                         }
@@ -569,7 +587,7 @@ impl<'a> Player<'a> {
                             self.facing = x;
                         }
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
-                        self.entity.velocity.x += Number::new(x as i32) / 64;
+                        self.entity.velocity.x += self.sword.air_move_force() * x as i32;
 
                         if buttons.is_just_pressed(Button::B) {
                             self.attack_timer =
