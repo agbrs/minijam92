@@ -415,7 +415,7 @@ impl SwordState {
             SwordState::ShortSword => short_sword_hurtbox(frame),
         }
     }
-    fn air_attack_hurtbox(self, frame: u16) -> Option<Rect<Number>> {
+    fn air_attack_hurtbox(self, _frame: u16) -> Option<Rect<Number>> {
         Some(Rect::new((0, 0).into(), (16, 16).into()))
     }
 }
