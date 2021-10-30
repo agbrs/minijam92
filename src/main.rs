@@ -712,8 +712,8 @@ impl BatData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
-        let mut instruction = EnemyInstruction::None;
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
+        let mut instruction = UpdateInstruction::None;
         let should_die = player
             .hurtbox
             .as_ref()
@@ -738,7 +738,7 @@ impl BatData {
                 if should_die {
                     self.bat_state = BatState::Dead;
                 } else if should_damage {
-                    instruction = EnemyInstruction::DamagePlayer;
+                    instruction = UpdateInstruction::DamagePlayer;
                 }
             }
             BatState::Chasing(count) => {
@@ -765,7 +765,7 @@ impl BatData {
                 if should_die {
                     self.bat_state = BatState::Dead;
                 } else if should_damage {
-                    instruction = EnemyInstruction::DamagePlayer;
+                    instruction = UpdateInstruction::DamagePlayer;
                 }
             }
             BatState::Dead => {
@@ -796,8 +796,8 @@ impl SlimeData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
-        let mut instruction = EnemyInstruction::None;
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
+        let mut instruction = UpdateInstruction::None;
 
         let should_die = player
             .hurtbox
@@ -832,7 +832,7 @@ impl SlimeData {
                 if should_die {
                     self.slime_state = SlimeState::Dead(0);
                 } else if should_damage {
-                    instruction = EnemyInstruction::DamagePlayer
+                    instruction = UpdateInstruction::DamagePlayer
                 }
             }
             SlimeState::Chasing(direction) => {
@@ -868,7 +868,7 @@ impl SlimeData {
                 if should_die {
                     self.slime_state = SlimeState::Dead(0);
                 } else if should_damage {
-                    instruction = EnemyInstruction::DamagePlayer
+                    instruction = UpdateInstruction::DamagePlayer
                 }
             }
             SlimeState::Dead(count) => {
@@ -876,7 +876,7 @@ impl SlimeData {
                     entity.sprite.set_tile_id((36 + *count / 4) * 4);
                     *count += 1;
                 } else {
-                    return EnemyInstruction::Remove;
+                    return UpdateInstruction::Remove;
                 }
             }
         }
@@ -884,7 +884,7 @@ impl SlimeData {
     }
 }
 
-enum EnemyInstruction {
+enum UpdateInstruction {
     None,
     Remove,
     DamagePlayer,
@@ -905,7 +905,7 @@ impl EnemyData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
         match self {
             EnemyData::Slime(data) => data.update(entity, player, level),
             EnemyData::Bat(data) => data.update(entity, player, level),
@@ -933,7 +933,7 @@ impl<'a> Enemy<'a> {
         Self { entity, enemy_data }
     }
 
-    fn update(&mut self, player: &Player, level: &Level) -> EnemyInstruction {
+    fn update(&mut self, player: &Player, level: &Level) -> UpdateInstruction {
         self.enemy_data.update(&mut self.entity, player, level)
     }
 }
@@ -1019,15 +1019,15 @@ impl<'a> Game<'a> {
 
         for (idx, enemy) in self.enemies.iter_mut() {
             match enemy.update(&self.player, &self.level) {
-                EnemyInstruction::Remove => {
+                UpdateInstruction::Remove => {
                     remove.push(idx);
                 }
-                EnemyInstruction::DamagePlayer => {
+                UpdateInstruction::DamagePlayer => {
                     if !self.player.damage() {
                         state = GameStatus::Lost;
                     }
                 }
-                EnemyInstruction::None => {}
+                UpdateInstruction::None => {}
             }
             enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
         }
