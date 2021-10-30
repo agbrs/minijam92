@@ -497,7 +497,7 @@ impl<'a> Player<'a> {
 
         Player {
             entity,
-            facing: Tri::Zero,
+            facing: Tri::Positive,
             state: PlayerState::OnGround,
             sword: SwordState::LongSword,
             sprite_offset: 0,
