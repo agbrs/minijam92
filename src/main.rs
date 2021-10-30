@@ -276,6 +276,7 @@ enum PlayerState {
 enum SwordState {
     LongSword,
     ShortSword,
+    Dagger,
 }
 
 impl SwordState {
@@ -283,92 +284,90 @@ impl SwordState {
         match self {
             SwordState::LongSword => Number::new(4) / 16,
             SwordState::ShortSword => Number::new(5) / 16,
+            SwordState::Dagger => Number::new(6) / 16,
         }
     }
     fn jump_impulse(self) -> Number {
         match self {
             SwordState::LongSword => Number::new(32) / 16,
             SwordState::ShortSword => Number::new(35) / 16,
+            SwordState::Dagger => Number::new(36) / 16,
         }
     }
     fn air_move_force(self) -> Number {
         match self {
             SwordState::LongSword => Number::new(4) / 256,
             SwordState::ShortSword => Number::new(5) / 256,
+            SwordState::Dagger => Number::new(6) / 256,
         }
     }
     fn idle_animation(self, counter: &mut u16) -> u16 {
+        if *counter >= 4 * 8 {
+            *counter = 0;
+        }
         match self {
-            SwordState::LongSword => {
-                if *counter >= 4 * 8 {
-                    *counter = 0;
-                }
-                (0 + *counter / 8) * 4
-            }
-            SwordState::ShortSword => {
-                if *counter >= 4 * 8 {
-                    *counter = 0;
-                }
-                (41 + *counter / 8) * 4
-            }
+            SwordState::LongSword => (0 + *counter / 8) * 4,
+            SwordState::ShortSword => (41 + *counter / 8) * 4,
+            SwordState::Dagger => (96 + *counter / 8) * 4,
         }
     }
     fn jump_offset(self) -> u16 {
         match self {
             SwordState::LongSword => 10,
             SwordState::ShortSword => 51,
+            SwordState::Dagger => 106,
         }
     }
     fn walk_animation(self, counter: &mut u16) -> u16 {
+        if *counter >= 6 * 4 {
+            *counter = 0;
+        }
         match self {
-            SwordState::LongSword => {
-                if *counter >= 6 * 4 {
-                    *counter = 0;
-                }
-                (4 + *counter / 4) * 4
-            }
-            SwordState::ShortSword => {
-                if *counter >= 6 * 4 {
-                    *counter = 0;
-                }
-                (45 + *counter / 4) * 4
-            }
+            SwordState::LongSword => (4 + *counter / 4) * 4,
+            SwordState::ShortSword => (45 + *counter / 4) * 4,
+            SwordState::Dagger => (100 + *counter / 4) * 4,
         }
     }
     fn attack_duration(self) -> u16 {
         match self {
             SwordState::LongSword => 60,
             SwordState::ShortSword => 40,
+            SwordState::Dagger => 20,
         }
     }
     fn jump_attack_duration(self) -> u16 {
         match self {
             SwordState::LongSword => 34,
             SwordState::ShortSword => 28,
+            SwordState::Dagger => 20,
         }
     }
     fn attack_frame(self, timer: u16) -> u16 {
         match self {
             SwordState::LongSword => (self.attack_duration() - timer) / 8,
             SwordState::ShortSword => (self.attack_duration() - timer) / 8,
+            SwordState::Dagger => (self.attack_duration() - timer) / 8,
         }
     }
     fn jump_attack_frame(self, timer: u16) -> u16 {
         match self {
             SwordState::LongSword => (self.jump_attack_duration() - timer) / 8,
             SwordState::ShortSword => (self.jump_attack_duration() - timer) / 8,
+            SwordState::Dagger => (self.jump_attack_duration() - timer) / 8,
         }
     }
     fn hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 7,
             SwordState::ShortSword => 7,
+            SwordState::Dagger => 7,
         }
     }
     fn jump_attack_hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 13,
             SwordState::ShortSword => 54,
+            SwordState::Dagger => 109,
         }
     }
 
@@ -376,29 +375,24 @@ impl SwordState {
         match self {
             SwordState::LongSword => 20,
             SwordState::ShortSword => 10,
+            SwordState::Dagger => 1,
         }
     }
     fn to_sprite_id(self, frame: u16) -> u16 {
         match self {
             SwordState::LongSword => (16 + frame) * 4,
             SwordState::ShortSword => (57 + frame) * 4,
+            SwordState::Dagger => (112 + frame) * 4,
         }
     }
     fn to_jump_sprite_id(self, frame: u16) -> u16 {
-        match self {
-            SwordState::LongSword => {
-                if frame == self.jump_attack_hold_frame() {
-                    frame * 4
-                } else {
-                    (24 + frame) * 4
-                }
-            }
-            SwordState::ShortSword => {
-                if frame == self.jump_attack_hold_frame() {
-                    frame * 4
-                } else {
-                    (65 + frame) * 4
-                }
+        if frame == self.jump_attack_hold_frame() {
+            frame * 4
+        } else {
+            match self {
+                SwordState::LongSword => (24 + frame) * 4,
+                SwordState::ShortSword => (65 + frame) * 4,
+                SwordState::Dagger => (120 + frame) * 4,
             }
         }
     }
@@ -406,6 +400,7 @@ impl SwordState {
         match self {
             SwordState::LongSword => long_sword_fudge(frame),
             SwordState::ShortSword => short_sword_fudge(frame),
+            SwordState::Dagger => 0,
         }
     }
     // origin at top left pre fudge boxes
@@ -413,11 +408,16 @@ impl SwordState {
         match self {
             SwordState::LongSword => long_sword_hurtbox(frame),
             SwordState::ShortSword => short_sword_hurtbox(frame),
+            SwordState::Dagger => dagger_hurtbox(frame),
         }
     }
     fn air_attack_hurtbox(self, _frame: u16) -> Option<Rect<Number>> {
         Some(Rect::new((0, 0).into(), (16, 16).into()))
     }
+}
+
+fn dagger_hurtbox(_frame: u16) -> Option<Rect<Number>> {
+    Some(Rect::new((9, 5).into(), (7, 9).into()))
 }
 
 fn long_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
@@ -701,7 +701,8 @@ impl<'a> Player<'a> {
         self.damage_cooldown = 120;
         let new_sword = match self.sword {
             SwordState::LongSword => Some(SwordState::ShortSword),
-            SwordState::ShortSword => None,
+            SwordState::ShortSword => Some(SwordState::Dagger),
+            SwordState::Dagger => None,
         };
         if let Some(sword) = new_sword {
             self.sword = sword;
@@ -715,6 +716,7 @@ impl<'a> Player<'a> {
         let new_sword = match self.sword {
             SwordState::LongSword => None,
             SwordState::ShortSword => Some(SwordState::LongSword),
+            SwordState::Dagger => Some(SwordState::ShortSword),
         };
 
         if let Some(sword) = new_sword {
@@ -803,7 +805,11 @@ impl BatData {
 
                 let speed = Number::new(1) / Number::new(4);
                 let target_velocity = player.entity.position - entity.position;
-                entity.velocity = target_velocity.normalise() * speed;
+                if target_velocity.manhattan_distance() > 1.into() {
+                    entity.velocity = target_velocity.normalise() * speed;
+                } else {
+                    entity.velocity = (0, 0).into();
+                }
 
                 if self.sprite_offset >= 9 * 2 {
                     self.sprite_offset = 0;
