@@ -59,4 +59,9 @@ impl<'a> Sfx<'a> {
         channel.volume(one / 4);
         self.mixer.play_sound(channel);
     }
+
+    pub fn slime_dead(&mut self) {
+        let channel = SoundChannel::new(SLIME_DEATH);
+        self.mixer.play_sound(channel);
+    }
 }

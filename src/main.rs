@@ -924,6 +924,7 @@ impl SlimeData {
                 }
                 if should_die {
                     self.slime_state = SlimeState::Dead(0);
+                    sfx.slime_dead();
                 } else if should_damage {
                     instruction = UpdateInstruction::DamagePlayer
                 }
