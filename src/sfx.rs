@@ -80,4 +80,12 @@ impl<'a> Sfx<'a> {
     pub fn player_land(&mut self) {
         self.mixer.play_sound(SoundChannel::new(PLAYER_LANDS));
     }
+
+    pub fn bat_flap(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(BAT_FLAP));
+    }
+
+    pub fn bat_death(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(BAT_DEATH));
+    }
 }

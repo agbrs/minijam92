@@ -757,7 +757,13 @@ impl BatData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        level: &Level,
+        sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
         let should_die = player
             .hurtbox
@@ -773,6 +779,10 @@ impl BatData {
                     self.sprite_offset = 0;
                 }
 
+                if self.sprite_offset == 0 {
+                    sfx.bat_flap();
+                }
+
                 entity.sprite.set_tile_id((78 + self.sprite_offset / 8) * 4);
 
                 if (entity.position - player.entity.position).manhattan_distance() < 50.into() {
@@ -782,6 +792,7 @@ impl BatData {
 
                 if should_die {
                     self.bat_state = BatState::Dead;
+                    sfx.bat_death();
                 } else if should_damage {
                     instruction = UpdateInstruction::DamagePlayer;
                 }
@@ -798,6 +809,14 @@ impl BatData {
                 }
                 entity.sprite.set_tile_id((78 + self.sprite_offset / 2) * 4);
 
+                if self.sprite_offset == 0 {
+                    sfx.bat_flap();
+                }
+
+                if self.sprite_offset == 0 {
+                    sfx.bat_flap();
+                }
+
                 entity.update_position(level);
 
                 if *count == 0 {
@@ -809,6 +828,7 @@ impl BatData {
 
                 if should_die {
                     self.bat_state = BatState::Dead;
+                    sfx.bat_death();
                 } else if should_damage {
                     instruction = UpdateInstruction::DamagePlayer;
                 }
@@ -977,7 +997,7 @@ impl EnemyData {
     ) -> UpdateInstruction {
         match self {
             EnemyData::Slime(data) => data.update(entity, player, level, sfx),
-            EnemyData::Bat(data) => data.update(entity, player, level),
+            EnemyData::Bat(data) => data.update(entity, player, level, sfx),
         }
     }
 }
