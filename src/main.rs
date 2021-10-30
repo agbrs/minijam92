@@ -660,6 +660,7 @@ struct BatData {
 enum BatState {
     Idle,
     Chasing(u16),
+    Dead,
 }
 
 struct SlimeData {
@@ -676,6 +677,12 @@ impl BatData {
     }
 
     fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+        let should_die = player
+            .hurtbox
+            .as_ref()
+            .map(|hurtbox| hurtbox.touches(entity.collider()))
+            .unwrap_or(false);
+
         match &mut self.bat_state {
             BatState::Idle => {
                 self.sprite_offset += 1;
@@ -688,6 +695,10 @@ impl BatData {
                 if (entity.position - player.entity.position).manhattan_distance() < 50.into() {
                     self.bat_state = BatState::Chasing(300);
                     self.sprite_offset /= 4;
+                }
+
+                if should_die {
+                    self.bat_state = BatState::Dead;
                 }
             }
             BatState::Chasing(count) => {
@@ -710,6 +721,18 @@ impl BatData {
                 } else {
                     *count -= 1;
                 }
+
+                if should_die {
+                    self.bat_state = BatState::Dead;
+                }
+            }
+            BatState::Dead => {
+                let gravity: Number = 1.into();
+                let gravity = gravity / 16;
+                entity.velocity.x = 0.into();
+                entity.velocity.y += gravity;
+
+                entity.update_position(level);
             }
         }
     }
