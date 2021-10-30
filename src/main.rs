@@ -163,13 +163,8 @@ impl<'a> Entity<'a> {
         self.position - initial_position
     }
 
-    fn collision_in_direction(
-        &mut self,
-        direction: Vector2D<Number>,
-        distance: Number,
-        collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
-    ) -> (Vector2D<Number>, bool) {
-        let number_collision: Rect<Number> = Rect::new(
+    fn collider(&self) -> Rect<Number> {
+        let mut number_collision: Rect<Number> = Rect::new(
             (
                 self.collision_mask.position.x as i32,
                 self.collision_mask.position.y as i32,
@@ -181,10 +176,20 @@ impl<'a> Entity<'a> {
             )
                 .into(),
         );
-        let collider_center = self.position + number_collision.position;
+        number_collision.position = self.position + number_collision.position;
+        number_collision
+    }
+
+    fn collision_in_direction(
+        &mut self,
+        direction: Vector2D<Number>,
+        distance: Number,
+        collision: impl Fn(Vector2D<Number>) -> Option<Rect<Number>>,
+    ) -> (Vector2D<Number>, bool) {
+        let number_collision = self.collider();
 
         let center_collision_point: Vector2D<Number> =
-            collider_center + number_collision.size.hadamard(direction) / 2;
+            number_collision.position + number_collision.size.hadamard(direction) / 2;
 
         let direction_transpose: Vector2D<Number> = direction.swap();
         let small = direction_transpose * Number::new(1) / 64;
@@ -663,20 +668,7 @@ impl SlimeData {
                     self.sprite_offset = 0;
                 }
                 if let Some(hurtbox) = &player.hurtbox {
-                    let number_collision: Rect<Number> = Rect::new(
-                        entity.position
-                            + (
-                                entity.collision_mask.position.x as i32,
-                                entity.collision_mask.position.y as i32,
-                            )
-                                .into(),
-                        (
-                            entity.collision_mask.size.x as i32,
-                            entity.collision_mask.size.y as i32,
-                        )
-                            .into(),
-                    );
-                    if hurtbox.touches(number_collision) {
+                    if hurtbox.touches(entity.collider()) {
                         self.slime_state = SlimeState::Dead(0);
                     }
                 }
@@ -712,20 +704,7 @@ impl SlimeData {
                     }
                 }
                 if let Some(hurtbox) = &player.hurtbox {
-                    let number_collision: Rect<Number> = Rect::new(
-                        entity.position
-                            + (
-                                entity.collision_mask.position.x as i32,
-                                entity.collision_mask.position.y as i32,
-                            )
-                                .into(),
-                        (
-                            entity.collision_mask.size.x as i32,
-                            entity.collision_mask.size.y as i32,
-                        )
-                            .into(),
-                    );
-                    if hurtbox.touches(number_collision) {
+                    if hurtbox.touches(entity.collider()) {
                         self.slime_state = SlimeState::Dead(0);
                     }
                 }
