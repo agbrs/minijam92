@@ -1451,6 +1451,7 @@ impl<'a> Game<'a> {
         {
             BossInstruction::Dead => {
                 sfx.sunrise();
+                self.start_sunrise();
                 let location = match &self.boss {
                     BossState::Active(b) => b.entity.position,
                     _ => unreachable!(),
@@ -1616,6 +1617,18 @@ impl<'a> Game<'a> {
             }
         }
     }
+
+    fn start_sunrise(&mut self) {
+        let mut modified_palette = background::background.palettes[0].clone();
+        modified_palette.update_colour(0, 17982);
+        modified_palette.update_colour(1, 22427);
+
+        let modified_palettes = [modified_palette];
+
+        self.background_distributor
+            .set_background_palettes(&modified_palettes);
+    }
+
     fn new(
         object: &'a ObjectControl,
         level: Level,
