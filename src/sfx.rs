@@ -14,7 +14,8 @@ const SLIME_BOING: &[u8] = agb::include_wav!("sfx/SlimeBoing.wav");
 const SLIME_DEATH: &[u8] = agb::include_wav!("sfx/SlimeDeath.wav");
 const SWORD_SWING: &[u8] = agb::include_wav!("sfx/SwordSwing.wav");
 
-const PURPLE_NIGHT: &[u8] = agb::include_wav!("sfx/01_-_The_Purple_Night.wav");
+const PURPLE_NIGHT: &[u8] = agb::include_wav!("sfx/01 - The Purple Night (Main Loop).wav");
+const SUNRISE: &[u8] = agb::include_wav!("sfx/02 - Sunrise (Main Loop).wav");
 
 pub struct Sfx<'a> {
     bgm: Option<ChannelId>,
