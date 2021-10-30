@@ -9,6 +9,8 @@ mod sfx;
 
 use alloc::vec::Vec;
 
+use rng::get_random;
+
 use agb::{
     display::{
         background::BackgroundRegular,
@@ -1301,10 +1303,4 @@ fn ping_pong(i: u16, n: u16) -> u16 {
     } else {
         i
     }
-}
-
-static mut RANDOM_GENERATOR: rng::RandomNumberGenerator = rng::RandomNumberGenerator::new();
-
-fn get_random() -> i32 {
-    unsafe { &mut RANDOM_GENERATOR }.next()
 }

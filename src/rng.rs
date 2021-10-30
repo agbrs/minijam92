@@ -1,15 +1,15 @@
-pub struct RandomNumberGenerator {
+struct RandomNumberGenerator {
     state: [u32; 4],
 }
 
 impl RandomNumberGenerator {
-    pub const fn new() -> Self {
+    const fn new() -> Self {
         Self {
             state: [1014776995, 476057059, 3301633994, 706340607],
         }
     }
 
-    pub fn next(&mut self) -> i32 {
+    fn next(&mut self) -> i32 {
         let result = (self.state[0].wrapping_add(self.state[3]))
             .rotate_left(7)
             .wrapping_mul(9);
@@ -25,4 +25,10 @@ impl RandomNumberGenerator {
 
         result as i32
     }
+}
+
+static mut RANDOM_GENERATOR: RandomNumberGenerator = RandomNumberGenerator::new();
+
+pub fn get_random() -> i32 {
+    unsafe { &mut RANDOM_GENERATOR }.next()
 }
