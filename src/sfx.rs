@@ -1,4 +1,5 @@
 use super::rng::get_random;
+use agb::number::Num;
 use agb::sound::mixer::{ChannelId, Mixer, SoundChannel};
 
 const BAT_DEATH: &[u8] = agb::include_wav!("sfx/BatDeath.wav");
@@ -50,5 +51,41 @@ impl<'a> Sfx<'a> {
         };
 
         self.mixer.play_sound(channel);
+    }
+
+    pub fn sword(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(SWORD_SWING));
+    }
+
+    pub fn slime_boing(&mut self) {
+        let mut channel = SoundChannel::new(SLIME_BOING);
+        let one: Num<i16, 4> = 1.into();
+        channel.volume(one / 4);
+        self.mixer.play_sound(channel);
+    }
+
+    pub fn slime_dead(&mut self) {
+        let channel = SoundChannel::new(SLIME_DEATH);
+        self.mixer.play_sound(channel);
+    }
+
+    pub fn player_hurt(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_GETS_HIT));
+    }
+
+    pub fn player_heal(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_HEAL));
+    }
+
+    pub fn player_land(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_LANDS));
+    }
+
+    pub fn bat_flap(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(BAT_FLAP));
+    }
+
+    pub fn bat_death(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(BAT_DEATH));
     }
 }
