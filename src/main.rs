@@ -1167,15 +1167,14 @@ impl<'a> BossState<'a> {
         enemies: &mut Arena<Enemy<'a>>,
         object_controller: &'a ObjectControl,
         player: &Player,
-    ) {
+    ) -> BossInstruction {
         match self {
-            BossState::Active(boss) => {
-                boss.update(enemies, object_controller, player);
-            }
+            BossState::Active(boss) => boss.update(enemies, object_controller, player),
             BossState::Following(boss) => {
                 boss.update(player);
+                BossInstruction::None
             }
-            BossState::NotSpawned => {}
+            BossState::NotSpawned => BossInstruction::None,
         }
     }
     fn commit(&mut self, offset: Vector2D<Number>) {
@@ -1217,15 +1216,15 @@ impl<'a> FollowingBoss<'a> {
         self.timer += 1;
 
         if self.following {
-            self.entity.velocity = difference / 3;
-            if difference.manhattan_distance() < 2.into() {
+            self.entity.velocity = difference / 16;
+            if difference.manhattan_distance() < 5.into() {
                 self.following = false;
             }
             let frame = (self.timer / 8) % 12;
             self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
         } else {
             self.entity.velocity = (0, 0).into();
-            if difference.manhattan_distance() > 20.into() {
+            if difference.manhattan_distance() > 40.into() {
                 self.following = true;
             }
             let frame = (self.timer / 16) % 12;
@@ -1311,6 +1310,7 @@ impl<'a> Boss<'a> {
             BossActiveState::WaitingUntilExplosion(time) => {
                 *time -= 1;
                 if *time == 0 {
+                    enemies.clear();
                     self.explode(enemies, object_controller);
                     self.state = BossActiveState::WaitingUntilDamaged
                 }
@@ -1433,13 +1433,21 @@ impl<'a> Game<'a> {
                 self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
             }
             MoveState::FollowingPlayer => {
-                let difference = self.player.entity.position.x - self.offset.x;
+                let difference = self.player.entity.position.x - (self.offset.x + WIDTH / 2);
                 self.offset.x += difference / 3;
             }
         }
 
-        self.boss
-            .update(&mut self.enemies, object_controller, &self.player);
+        match self
+            .boss
+            .update(&mut self.enemies, object_controller, &self.player)
+        {
+            BossInstruction::Dead => {
+                self.boss = BossState::Following(FollowingBoss::new(object_controller));
+                self.move_state = MoveState::FollowingPlayer;
+            }
+            BossInstruction::None => {}
+        }
 
         self.load_enemies(object_controller);
 
