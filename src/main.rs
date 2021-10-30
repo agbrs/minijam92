@@ -252,6 +252,25 @@ impl<'a> Entity<'a> {
         }
         self.sprite.commit();
     }
+
+    fn commit_with_size(&mut self, offset: Vector2D<Number>, size: Vector2D<i32>) {
+        if !self.visible {
+            self.sprite.hide();
+        } else {
+            let position = (self.position - offset).floor();
+            self.sprite.set_position(position - size / 2);
+            if position.x < -8
+                || position.x > WIDTH + 8
+                || position.y < -8
+                || position.y > HEIGHT + 8
+            {
+                self.sprite.hide();
+            } else {
+                self.sprite.show();
+            }
+        }
+        self.sprite.commit();
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -1319,7 +1338,7 @@ impl<'a> Boss<'a> {
         instruction
     }
     fn commit(&mut self, offset: Vector2D<Number>) {
-        self.entity.commit_with_fudge(offset, (0, 0).into());
+        self.entity.commit_with_size(offset, (32, 32).into());
     }
     fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
         // slimes
