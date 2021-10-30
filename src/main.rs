@@ -13,7 +13,7 @@ use rng::get_random;
 
 use agb::{
     display::{
-        background::BackgroundRegular,
+        background::{BackgroundDistributor, BackgroundRegular},
         object::{ObjectControl, ObjectStandard},
         Priority, HEIGHT, WIDTH,
     },
@@ -1397,6 +1397,8 @@ struct Game<'a> {
     bat_load: usize,
     boss: BossState<'a>,
     move_state: MoveState,
+
+    background_distributor: &'a mut BackgroundDistributor,
 }
 
 enum MoveState {
@@ -1614,7 +1616,11 @@ impl<'a> Game<'a> {
             }
         }
     }
-    fn new(object: &'a ObjectControl, level: Level) -> Self {
+    fn new(
+        object: &'a ObjectControl,
+        level: Level,
+        background_distributor: &'a mut BackgroundDistributor,
+    ) -> Self {
         Self {
             player: Player::new(object),
             input: ButtonController::new(),
@@ -1629,6 +1635,8 @@ impl<'a> Game<'a> {
             particles: Arena::with_capacity(30),
             boss: BossState::NotSpawned,
             move_state: MoveState::Advancing,
+
+            background_distributor,
         }
     }
 }
@@ -1660,6 +1668,7 @@ fn game_with_level(gba: &mut agb::Gba) {
             background.get_regular().unwrap(),
             background.get_regular().unwrap(),
         ),
+        &mut background,
     );
 
     let mut mixer = gba.mixer.mixer();
