@@ -1012,6 +1012,11 @@ impl ParticleData {
                 } else {
                     let speed = Number::new(2);
                     let target_velocity = player.entity.position - entity.position;
+
+                    if target_velocity.manhattan_distance() < 1.into() {
+                        return true; // TODO: Heal here
+                    }
+
                     entity.velocity = target_velocity.normalise() * speed;
                 }
 
