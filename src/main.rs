@@ -1101,7 +1101,11 @@ struct Particle<'a> {
 }
 
 impl<'a> Particle<'a> {
-    fn new(object_controller: &'a ObjectControl, particle_data: ParticleData) -> Self {
+    fn new(
+        object_controller: &'a ObjectControl,
+        particle_data: ParticleData,
+        position: Vector2D<Number>,
+    ) -> Self {
         let mut entity = Entity::new(
             object_controller,
             Rect::new((0u16, 0u16).into(), (0u16, 0u16).into()),
@@ -1110,10 +1114,9 @@ impl<'a> Particle<'a> {
         entity
             .sprite
             .set_sprite_size(agb::display::object::Size::S16x16);
-        entity.sprite.set_tile_id(particle_data.tile_id());
+        entity.sprite.set_tile_id(particle_data.tile_id() * 4);
         entity.sprite.show();
-
-        entity.sprite.commit();
+        entity.position = position;
 
         Self {
             entity,
@@ -1447,8 +1450,7 @@ impl<'a> Game<'a> {
         self.input.update();
         match self.player.update(&self.input, &self.level, sfx) {
             UpdateInstruction::CreateParticle(data, position) => {
-                let mut new_particle = Particle::new(object_controller, data);
-                new_particle.entity.position = position;
+                let new_particle = Particle::new(object_controller, data, position);
 
                 self.particles.insert(new_particle);
             }
@@ -1482,9 +1484,7 @@ impl<'a> Game<'a> {
                     }
                 }
                 UpdateInstruction::CreateParticle(data, position) => {
-                    let mut new_particle = Particle::new(object_controller, data);
-                    new_particle.entity.position = position;
-
+                    let new_particle = Particle::new(object_controller, data, position);
                     self.particles.insert(new_particle);
                 }
                 UpdateInstruction::None => {}
