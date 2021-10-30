@@ -13,7 +13,7 @@ use agb::{
         Priority, HEIGHT, WIDTH,
     },
     input::{Button, ButtonController, Tri},
-    number::{FixedNum, FixedWidthSignedInteger, Rect, Vector2D},
+    number::{FixedNum, Rect, Vector2D},
     sound::mixer::SoundChannel,
 };
 
@@ -282,6 +282,26 @@ impl SwordState {
         match self {
             SwordState::LongSword => long_sword_fudge(frame),
         }
+    }
+    // origin at top left pre fudge boxes
+    fn ground_attack_hurtbox(self, frame: u16) -> Option<Rect<Number>> {
+        match self {
+            SwordState::LongSword => long_sword_hurtbox(frame),
+        }
+    }
+}
+
+fn long_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
+    match frame {
+        0 => Some(Rect::new((1, 10).into(), (6, 3).into())),
+        1 => Some(Rect::new((0, 9).into(), (7, 2).into())),
+        2 => Some(Rect::new((0, 1).into(), (6, 8).into())),
+        3 => Some(Rect::new((3, 0).into(), (6, 8).into())),
+        4 => Some(Rect::new((6, 3).into(), (10, 8).into())),
+        5 => Some(Rect::new((6, 5).into(), (10, 9).into())),
+        6 => Some(Rect::new((6, 5).into(), (10, 9).into())),
+        7 => Some(Rect::new((6, 5).into(), (10, 9).into())),
+        _ => unreachable!(),
     }
 }
 
@@ -563,13 +583,13 @@ impl SlimeData {
 impl EnemyData {
     fn collision_mask(&self) -> Rect<u16> {
         match self {
-            &EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
+            EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
         }
     }
 
     fn tile_id(&self) -> u16 {
         match self {
-            &EnemyData::Slime(_) => 29,
+            EnemyData::Slime(_) => 29,
         }
     }
 
