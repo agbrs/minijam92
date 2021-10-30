@@ -651,13 +651,14 @@ impl<'a> Player<'a> {
             b
         });
 
+        let prior_y_velocity = self.entity.velocity.y;
         self.entity.update_position(level);
         let (_, collided_down) = self
             .entity
             .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v));
 
         if collided_down {
-            if self.state == PlayerState::InAir && self.entity.velocity.y > 2.into() {
+            if self.state == PlayerState::InAir && prior_y_velocity > 2.into() {
                 instruction = UpdateInstruction::CreateParticle(
                     ParticleData::new_dust(),
                     self.entity.position + (2 * self.facing as i32, 0).into(),
