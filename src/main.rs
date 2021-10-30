@@ -770,7 +770,7 @@ impl BatData {
                     self.sprite_offset = 0;
                 }
 
-                if self.sprite_offset == 0 {
+                if self.sprite_offset == 8 * 5 {
                     sfx.bat_flap();
                 }
 
@@ -804,11 +804,7 @@ impl BatData {
                 }
                 entity.sprite.set_tile_id((78 + self.sprite_offset / 2) * 4);
 
-                if self.sprite_offset == 0 {
-                    sfx.bat_flap();
-                }
-
-                if self.sprite_offset == 0 {
+                if self.sprite_offset == 2 * 5 {
                     sfx.bat_flap();
                 }
 
