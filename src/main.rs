@@ -5,6 +5,7 @@ extern crate agb;
 extern crate alloc;
 
 mod rng;
+mod sfx;
 
 use alloc::vec::Vec;
 
@@ -1262,7 +1263,7 @@ fn game_with_level(gba: &mut agb::Gba) {
     let mut mixer = gba.mixer.mixer();
     mixer.enable();
 
-    let sfx = sfx::Sfx::new(&mut mixer);
+    let mut sfx = sfx::Sfx::new(&mut mixer);
     sfx.purple_night();
 
     loop {

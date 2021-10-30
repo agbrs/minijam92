@@ -1,4 +1,3 @@
-use agb::include_wav;
 use agb::sound::mixer::{ChannelId, Mixer, SoundChannel};
 
 const BAT_DEATH: &[u8] = agb::include_wav!("sfx/BatDeath.wav");
@@ -30,13 +29,13 @@ impl<'a> Sfx<'a> {
     }
 
     pub fn purple_night(&mut self) {
-        if Some(bgm) = self.bgm {
-            let channel = self.mixer.get_channel(bgm).unwrap();
+        if let Some(bgm) = &self.bgm {
+            let channel = self.mixer.get_channel(&bgm).unwrap();
             channel.stop();
         }
 
-        let channel = SoundChannel::new(PURPLE_NIGHT);
+        let mut channel = SoundChannel::new(PURPLE_NIGHT);
         channel.stereo().should_loop();
-        self.bgm = mixer.play_sound(channel);
+        self.bgm = self.mixer.play_sound(channel);
     }
 }
