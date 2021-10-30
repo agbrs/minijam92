@@ -1424,7 +1424,7 @@ impl<'a> Game<'a> {
 
         match self.move_state {
             MoveState::Advancing => {
-                self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
+                self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 8;
 
                 if self.has_just_reached_end() {
                     sfx.boss();
@@ -1640,7 +1640,7 @@ impl<'a> Game<'a> {
             input: ButtonController::new(),
             frame_count: 0,
             level,
-            offset: (0, 0).into(),
+            offset: (8, 8).into(),
             shake_time: 0,
 
             enemies: Arena::with_capacity(100),
