@@ -175,6 +175,12 @@ impl<'a> Entity<'a> {
         self.position - initial_position
     }
 
+    fn update_position_without_collision(&mut self) -> Vector2D<Number> {
+        self.position += self.velocity;
+
+        self.velocity
+    }
+
     fn collider(&self) -> Rect<Number> {
         let mut number_collision: Rect<Number> = Rect::new(
             (
@@ -756,7 +762,7 @@ impl BatData {
                 self.sprite_offset += 1;
 
                 let speed = Number::new(1) / Number::new(4);
-                let target_velocity = (player.entity.position - entity.position);
+                let target_velocity = player.entity.position - entity.position;
                 entity.velocity = target_velocity.normalise() * speed;
 
                 if self.sprite_offset >= 9 * 2 {
@@ -784,9 +790,20 @@ impl BatData {
                 let gravity: Number = 1.into();
                 let gravity = gravity / 16;
                 entity.velocity.x = 0.into();
+
                 entity.velocity.y += gravity;
 
-                entity.update_position(level);
+                let original_y_velocity = entity.velocity.y;
+                let move_amount = entity.update_position(level);
+
+                let just_landed = move_amount.y != 0.into() && original_y_velocity != move_amount.y;
+
+                if just_landed {
+                    instruction = UpdateInstruction::CreateParticle(
+                        ParticleData::new_health(),
+                        entity.position,
+                    );
+                }
             }
         }
         instruction
@@ -952,6 +969,7 @@ impl<'a> Enemy<'a> {
 
 enum ParticleData {
     Dust(u16),
+    Health(u16),
 }
 
 impl ParticleData {
@@ -959,13 +977,18 @@ impl ParticleData {
         Self::Dust(0)
     }
 
+    fn new_health() -> Self {
+        Self::Health(0)
+    }
+
     fn tile_id(&self) -> u16 {
         match self {
             ParticleData::Dust(_) => 70,
+            ParticleData::Health(_) => 88,
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, _player: &Player, _level: &Level) -> bool {
+    fn update(&mut self, entity: &mut Entity, player: &Player, _level: &Level) -> bool {
         match self {
             ParticleData::Dust(frame) => {
                 if *frame == 8 * 3 {
@@ -975,6 +998,27 @@ impl ParticleData {
                 entity.sprite.set_tile_id((70 + *frame / 3) * 4);
 
                 *frame += 1;
+                return false;
+            }
+            ParticleData::Health(frame) => {
+                if *frame > 8 * 3 * 6 {
+                    return true; // have played the animation 6 times
+                }
+
+                entity.sprite.set_tile_id((88 + (*frame / 3) % 8) * 4);
+
+                if *frame < 8 * 3 * 3 {
+                    entity.velocity.y = Number::new(-1) / 2;
+                } else {
+                    let speed = Number::new(2);
+                    let target_velocity = player.entity.position - entity.position;
+                    entity.velocity = target_velocity.normalise() * speed;
+                }
+
+                entity.update_position_without_collision();
+
+                *frame += 1;
+
                 return false;
             }
         }
