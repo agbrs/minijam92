@@ -1427,6 +1427,7 @@ impl<'a> Game<'a> {
                 self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
 
                 if self.has_just_reached_end() {
+                    sfx.boss();
                     self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
                     self.move_state = MoveState::PinnedAtEnd;
                     self.boss = BossState::Active(Boss::new(object_controller, self.offset))
