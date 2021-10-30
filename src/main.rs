@@ -907,6 +907,12 @@ impl SlimeData {
                 } else if should_damage {
                     instruction = UpdateInstruction::DamagePlayer
                 }
+
+                let gravity: Number = 1.into();
+                let gravity = gravity / 16;
+                entity.velocity.y += gravity;
+                entity.velocity *= Number::new(15) / 16;
+                entity.update_position(level);
             }
             SlimeState::Chasing(direction) => {
                 self.sprite_offset += 1;
@@ -1271,6 +1277,7 @@ impl<'a> Boss<'a> {
                 let target = self.get_target_location() + self.screen_coords;
                 let difference = target - self.entity.position;
                 if difference.manhattan_distance() < 1.into() {
+                    self.entity.velocity = (0, 0).into();
                     self.state = BossActiveState::WaitingUntilExplosion(60);
                 } else {
                     self.entity.velocity = difference / 8;
