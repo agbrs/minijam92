@@ -849,7 +849,13 @@ impl SlimeData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        level: &Level,
+        sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
 
         let should_die = player
@@ -894,17 +900,15 @@ impl SlimeData {
                     self.slime_state = SlimeState::Idle;
                 } else {
                     let frame = ping_pong(self.sprite_offset / 6, 5);
+
+                    if frame == 0 {
+                        sfx.slime_boing();
+                    }
+
                     entity.sprite.set_tile_id((frame + 31) * 4);
 
                     entity.velocity.x = match frame {
-                        2 | 3 | 4 => {
-                            (Number::new(1) / 5)
-                                * match direction {
-                                    Tri::Negative => -1,
-                                    Tri::Positive => 1,
-                                    Tri::Zero => 0,
-                                }
-                        }
+                        2 | 3 | 4 => (Number::new(1) / 5) * Number::new(*direction as i32),
                         _ => 0.into(),
                     };
 
@@ -960,9 +964,15 @@ impl EnemyData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> UpdateInstruction {
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        level: &Level,
+        sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
         match self {
-            EnemyData::Slime(data) => data.update(entity, player, level),
+            EnemyData::Slime(data) => data.update(entity, player, level, sfx),
             EnemyData::Bat(data) => data.update(entity, player, level),
         }
     }
@@ -988,8 +998,8 @@ impl<'a> Enemy<'a> {
         Self { entity, enemy_data }
     }
 
-    fn update(&mut self, player: &Player, level: &Level) -> UpdateInstruction {
-        self.enemy_data.update(&mut self.entity, player, level)
+    fn update(&mut self, player: &Player, level: &Level, sfx: &mut sfx::Sfx) -> UpdateInstruction {
+        self.enemy_data.update(&mut self.entity, player, level, sfx)
     }
 }
 
@@ -1134,7 +1144,7 @@ impl<'a> Game<'a> {
 
         let mut remove = Vec::with_capacity(10);
         for (idx, enemy) in self.enemies.iter_mut() {
-            match enemy.update(&self.player, &self.level) {
+            match enemy.update(&self.player, &self.level, sfx) {
                 UpdateInstruction::Remove => {
                     remove.push(idx);
                 }
@@ -1244,8 +1254,6 @@ impl<'a> Game<'a> {
         }
     }
 }
-
-const MINIMUSIC: &[u8] = agb::include_wav!("sfx/01_-_The_Purple_Night.wav");
 
 fn game_with_level(gba: &mut agb::Gba) {
     let mut object = gba.display.object.get();
