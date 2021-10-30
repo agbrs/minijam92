@@ -1261,14 +1261,13 @@ fn game_with_level(gba: &mut agb::Gba) {
 
     let mut mixer = gba.mixer.mixer();
     mixer.enable();
-    let mut channel = SoundChannel::new(MINIMUSIC);
-    channel.stereo().should_loop();
-    mixer.play_sound(channel).unwrap();
-    mixer.vblank();
+
+    let sfx = sfx::Sfx::new(&mut mixer);
+    sfx.purple_night();
 
     loop {
         vblank.wait_for_vblank();
-        mixer.vblank();
+        sfx.vblank();
         match game.advance_frame(&object) {
             GameStatus::Continue => {}
             GameStatus::Lost | GameStatus::Won => {
