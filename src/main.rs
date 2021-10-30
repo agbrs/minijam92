@@ -622,17 +622,50 @@ impl<'a> Player<'a> {
 
 enum EnemyData {
     Slime(SlimeData),
+    Bat(BatData),
+}
+
+struct BatData {
+    sprite_offset: u16,
+    bat_state: BatState,
+}
+
+enum BatState {
+    Idle,
+    //Chasing(u16),
+}
+
+struct SlimeData {
+    sprite_offset: u16,
+    slime_state: SlimeState,
+}
+
+impl BatData {
+    fn new() -> Self {
+        Self {
+            sprite_offset: 0,
+            bat_state: BatState::Idle,
+        }
+    }
+
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+        match &mut self.bat_state {
+            BatState::Idle => {
+                self.sprite_offset += 1;
+                if self.sprite_offset >= 9 * 8 {
+                    self.sprite_offset = 0;
+                }
+
+                entity.sprite.set_tile_id((78 + self.sprite_offset / 8) * 4);
+            }
+        }
+    }
 }
 
 enum SlimeState {
     Idle,
     Chasing(Tri),
     Dead(u16),
-}
-
-struct SlimeData {
-    sprite_offset: u16,
-    slime_state: SlimeState,
 }
 
 impl SlimeData {
@@ -725,18 +758,21 @@ impl EnemyData {
     fn collision_mask(&self) -> Rect<u16> {
         match self {
             EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
+            EnemyData::Bat(_) => Rect::new((1u16, 0u16).into(), (15u16, 6u16).into()),
         }
     }
 
     fn tile_id(&self) -> u16 {
         match self {
             EnemyData::Slime(_) => 29,
+            EnemyData::Bat(_) => 78,
         }
     }
 
     fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
         match self {
             EnemyData::Slime(data) => data.update(entity, player, level),
+            EnemyData::Bat(data) => data.update(entity, player, level),
         }
     }
 }
