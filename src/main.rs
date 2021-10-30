@@ -787,6 +787,9 @@ impl BatData {
                 } else if should_damage {
                     instruction = UpdateInstruction::DamagePlayer;
                 }
+
+                entity.velocity *= Number::new(15) / 16;
+                entity.update_position(level);
             }
             BatState::Chasing(count) => {
                 self.sprite_offset += 1;
