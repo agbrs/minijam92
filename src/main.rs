@@ -986,9 +986,9 @@ impl SlimeData {
 }
 
 enum MiniFlameState {
-    Idle,
-    Chasing(Vector2D<Number>),
-    Dead(u16),
+    Idle(u16),
+    Chasing,
+    Dead,
 }
 
 struct MiniFlameData {
@@ -996,7 +996,118 @@ struct MiniFlameData {
     sprite_offset: u16,
 }
 
-impl MiniFlameData {}
+impl MiniFlameData {
+    fn new() -> Self {
+        Self {
+            state: MiniFlameState::Idle(90),
+            sprite_offset: 0,
+        }
+    }
+
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        _level: &Level,
+        _sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
+        let mut instruction = UpdateInstruction::None;
+
+        let should_die = player
+            .hurtbox
+            .as_ref()
+            .map(|h| h.touches(entity.collider()))
+            .unwrap_or(false);
+        let should_damage = entity.collider().touches(player.entity.collider());
+
+        self.sprite_offset += 1;
+
+        match &mut self.state {
+            MiniFlameState::Idle(frames) => {
+                *frames -= 1;
+
+                if *frames == 0 {
+                    let resulting_direction = player.entity.position - entity.position;
+                    if resulting_direction.manhattan_distance() < 1.into() {
+                        self.state = MiniFlameState::Idle(30);
+                    } else {
+                        self.state = MiniFlameState::Chasing;
+                        entity.velocity = resulting_direction.normalise() * Number::new(2);
+                    }
+                } else {
+                    if self.sprite_offset >= 12 * 8 {
+                        self.sprite_offset = 0;
+                    }
+
+                    entity
+                        .sprite
+                        .set_tile_id((137 + self.sprite_offset / 8) * 4);
+
+                    entity.velocity = (0.into(), Number::new(-1) / Number::new(4)).into();
+                }
+
+                if should_die {
+                    self.sprite_offset = 0;
+                    self.state = MiniFlameState::Dead;
+
+                    if get_random() % 4 == 0 {
+                        instruction = UpdateInstruction::CreateParticle(
+                            ParticleData::new_health(),
+                            entity.position,
+                        );
+                    }
+                } else if should_damage {
+                    instruction = UpdateInstruction::DamagePlayer;
+                }
+            }
+            MiniFlameState::Chasing => {
+                entity.velocity *= Number::new(63) / Number::new(64);
+
+                if should_die {
+                    self.sprite_offset = 0;
+                    self.state = MiniFlameState::Dead;
+
+                    if get_random() % 4 == 0 {
+                        instruction = UpdateInstruction::CreateParticle(
+                            ParticleData::new_health(),
+                            entity.position,
+                        );
+                    }
+                } else if should_damage {
+                    instruction = UpdateInstruction::DamagePlayer;
+                }
+
+                if self.sprite_offset >= 12 * 2 {
+                    self.sprite_offset = 0;
+                }
+
+                if entity.velocity.manhattan_distance() < Number::new(1) / Number::new(4) {
+                    self.state = MiniFlameState::Idle(90);
+                }
+
+                entity
+                    .sprite
+                    .set_tile_id((137 + self.sprite_offset / 2) * 4);
+            }
+            MiniFlameState::Dead => {
+                entity.velocity = (0, 0).into();
+                if self.sprite_offset >= 6 * 12 {
+                    instruction = UpdateInstruction::Remove;
+                }
+
+                entity
+                    .sprite
+                    .set_tile_id((148 + self.sprite_offset / 12) * 4);
+
+                self.sprite_offset += 1;
+            }
+        };
+
+        entity.update_position_without_collision();
+
+        instruction
+    }
+}
 
 enum UpdateInstruction {
     None,
@@ -1011,6 +1122,7 @@ impl EnemyData {
         match self {
             EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
             EnemyData::Bat(_) => Rect::new((0u16, 0u16).into(), (12u16, 4u16).into()),
+            EnemyData::MiniFlame(_) => Rect::new((0u16, 0u16).into(), (12u16, 12u16).into()),
         }
     }
 
@@ -1018,6 +1130,7 @@ impl EnemyData {
         match self {
             EnemyData::Slime(_) => 29,
             EnemyData::Bat(_) => 78,
+            EnemyData::MiniFlame(_) => 137,
         }
     }
 
@@ -1031,6 +1144,7 @@ impl EnemyData {
         match self {
             EnemyData::Slime(data) => data.update(entity, player, level, sfx),
             EnemyData::Bat(data) => data.update(entity, player, level, sfx),
+            EnemyData::MiniFlame(data) => data.update(entity, player, level, sfx),
         }
     }
 }
@@ -1356,24 +1470,15 @@ impl<'a> Boss<'a> {
         self.entity.commit_with_size(offset, (32, 32).into());
     }
     fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
-        // slimes
-        for _ in 0..4 {
-            let x_velocity: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
-            let y_velocity: Number = -Number::from_raw(get_random()).rem_euclid(1.into());
-            let mut slime = Enemy::new(object_controller, EnemyData::Slime(SlimeData::new()));
-            slime.entity.position = self.entity.position;
-            slime.entity.velocity = (x_velocity, y_velocity).into();
-            enemies.insert(slime);
-        }
-
-        // bats
-        for _ in 0..4 {
-            let x_velocity: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
-            let y_velocity: Number = -Number::from_raw(get_random()).rem_euclid(1.into());
-            let mut bat = Enemy::new(object_controller, EnemyData::Bat(BatData::new()));
-            bat.entity.position = self.entity.position;
-            bat.entity.velocity = (x_velocity, y_velocity).into();
-            enemies.insert(bat);
+        for _ in 0..(6 - self.health) {
+            let x_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into());
+            let y_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into());
+            let mut flame = Enemy::new(
+                object_controller,
+                EnemyData::MiniFlame(MiniFlameData::new()),
+            );
+            flame.entity.position = self.entity.position + (x_offset, y_offset).into();
+            enemies.insert(flame);
         }
     }
 
