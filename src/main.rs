@@ -673,6 +673,8 @@ impl<'a> Player<'a> {
                     ParticleData::new_dust(),
                     self.entity.position + (2 * self.facing as i32, 0).into(),
                 );
+
+                sfx.player_land();
             }
 
             self.state = PlayerState::OnGround;

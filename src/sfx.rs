@@ -76,4 +76,8 @@ impl<'a> Sfx<'a> {
     pub fn player_heal(&mut self) {
         self.mixer.play_sound(SoundChannel::new(PLAYER_HEAL));
     }
+
+    pub fn player_land(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(PLAYER_LANDS));
+    }
 }
