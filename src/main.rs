@@ -741,6 +741,7 @@ impl<'a> Player<'a> {
 enum EnemyData {
     Slime(SlimeData),
     Bat(BatData),
+    MiniFlame(MiniFlameData),
 }
 
 struct BatData {
@@ -983,6 +984,19 @@ impl SlimeData {
         instruction
     }
 }
+
+enum MiniFlameState {
+    Idle,
+    Chasing(Vector2D<Number>),
+    Dead(u16),
+}
+
+struct MiniFlameData {
+    state: MiniFlameState,
+    sprite_offset: u16,
+}
+
+impl MiniFlameData {}
 
 enum UpdateInstruction {
     None,
