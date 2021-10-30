@@ -52,7 +52,7 @@ impl Level {
         ));
         foreground.set_priority(Priority::P2);
 
-        clouds.set_position(Vector2D::new(0, 0));
+        clouds.set_position(Vector2D::new(0, -5));
         clouds.set_map(agb::display::background::Map::new(
             tilemap::CLOUD_MAP,
             Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
