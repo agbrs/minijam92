@@ -17,10 +17,13 @@ fn main() {
     let width = map.width;
     let height = map.height;
 
-    let background_layer = &map.layers[0];
+    let cloud_layer = &map.layers[0];
+    let cloud_tiles = extract_tiles(&cloud_layer.tiles);
+
+    let background_layer = &map.layers[1];
     let background_tiles = extract_tiles(&background_layer.tiles);
 
-    let foreground_layer = &map.layers[1];
+    let foreground_layer = &map.layers[2];
     let foreground_tiles = extract_tiles(&foreground_layer.tiles);
 
     let slime_spawns = map.object_groups[0]
@@ -44,6 +47,7 @@ fn main() {
         (0..map.tilesets[0].tilecount.unwrap()).map(|id| tile_types.get(&(id + 1)).unwrap_or(&0));
 
     let output = quote! {
+        pub const CLOUD_MAP: &[u16] = &[#(#cloud_tiles),*];
         pub const BACKGROUND_MAP: &[u16] = &[#(#background_tiles),*];
         pub const FOREGROUND_MAP: &[u16] = &[#(#foreground_tiles),*];
         pub const WIDTH: u32 = #width;
