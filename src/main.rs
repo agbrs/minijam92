@@ -105,6 +105,7 @@ struct Entity<'a> {
     position: Vector2D<Number>,
     velocity: Vector2D<Number>,
     collision_mask: Rect<u16>,
+    visible: bool,
 }
 
 impl<'a> Entity<'a> {
@@ -116,6 +117,7 @@ impl<'a> Entity<'a> {
             collision_mask,
             position: (0, 0).into(),
             velocity: (0, 0).into(),
+            visible: true,
         }
     }
 
@@ -203,12 +205,20 @@ impl<'a> Entity<'a> {
     }
 
     fn commit_with_fudge(&mut self, offset: Vector2D<Number>, fudge: Vector2D<i32>) {
-        let position = (self.position - offset).floor() + fudge;
-        self.sprite.set_position(position - (8, 8).into());
-        if position.x < -8 || position.x > WIDTH + 8 || position.y < -8 || position.y > HEIGHT + 8 {
+        if !self.visible {
             self.sprite.hide();
         } else {
-            self.sprite.show();
+            let position = (self.position - offset).floor() + fudge;
+            self.sprite.set_position(position - (8, 8).into());
+            if position.x < -8
+                || position.x > WIDTH + 8
+                || position.y < -8
+                || position.y > HEIGHT + 8
+            {
+                self.sprite.hide();
+            } else {
+                self.sprite.show();
+            }
         }
         self.sprite.commit();
     }
@@ -516,7 +526,7 @@ enum EnemyData {
 enum SlimeState {
     Idle,
     Chasing(Tri),
-    Dead,
+    Dead(u16),
 }
 
 struct SlimeData {
@@ -533,25 +543,7 @@ impl SlimeData {
     }
 
     fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
-        if let Some(hurtbox) = &player.hurtbox {
-            let number_collision: Rect<Number> = Rect::new(
-                entity.position
-                    + (
-                        entity.collision_mask.position.x as i32,
-                        entity.collision_mask.position.y as i32,
-                    )
-                        .into(),
-                (
-                    entity.collision_mask.size.x as i32,
-                    entity.collision_mask.size.y as i32,
-                )
-                    .into(),
-            );
-            if hurtbox.touches(number_collision) {
-                self.slime_state = SlimeState::Dead;
-            }
-        }
-        match self.slime_state {
+        match &mut self.slime_state {
             SlimeState::Idle => {
                 self.sprite_offset += 1;
                 if self.sprite_offset >= 32 {
@@ -573,6 +565,24 @@ impl SlimeData {
 
                     self.slime_state = SlimeState::Chasing(direction);
                     self.sprite_offset = 0;
+                }
+                if let Some(hurtbox) = &player.hurtbox {
+                    let number_collision: Rect<Number> = Rect::new(
+                        entity.position
+                            + (
+                                entity.collision_mask.position.x as i32,
+                                entity.collision_mask.position.y as i32,
+                            )
+                                .into(),
+                        (
+                            entity.collision_mask.size.x as i32,
+                            entity.collision_mask.size.y as i32,
+                        )
+                            .into(),
+                    );
+                    if hurtbox.touches(number_collision) {
+                        self.slime_state = SlimeState::Dead(0);
+                    }
                 }
             }
             SlimeState::Chasing(direction) => {
@@ -605,8 +615,33 @@ impl SlimeData {
                         self.sprite_offset = 6 * 6;
                     }
                 }
+                if let Some(hurtbox) = &player.hurtbox {
+                    let number_collision: Rect<Number> = Rect::new(
+                        entity.position
+                            + (
+                                entity.collision_mask.position.x as i32,
+                                entity.collision_mask.position.y as i32,
+                            )
+                                .into(),
+                        (
+                            entity.collision_mask.size.x as i32,
+                            entity.collision_mask.size.y as i32,
+                        )
+                            .into(),
+                    );
+                    if hurtbox.touches(number_collision) {
+                        self.slime_state = SlimeState::Dead(0);
+                    }
+                }
             }
-            SlimeState::Dead => {}
+            SlimeState::Dead(count) => {
+                if *count < 60 {
+                    entity.sprite.set_tile_id((36 + *count / 12) * 4);
+                    *count += 1;
+                } else {
+                    entity.visible = false;
+                }
+            }
         }
     }
 }
