@@ -401,7 +401,7 @@ impl SwordState {
         }
     }
     fn air_attack_hurtbox(self, frame: u16) -> Option<Rect<Number>> {
-        Some(Rect::new((2, 2).into(), (12, 12).into()))
+        Some(Rect::new((0, 0).into(), (16, 16).into()))
     }
 }
 
@@ -473,6 +473,7 @@ struct Player<'a> {
     state: PlayerState,
     sprite_offset: u16,
     attack_timer: AttackTimer,
+    damage_cooldown: u16,
     sword: SwordState,
     fudge_factor: Vector2D<i32>,
     hurtbox: Option<Rect<Number>>,
@@ -482,7 +483,7 @@ impl<'a> Player<'a> {
     fn new(object_controller: &'a ObjectControl) -> Player {
         let mut entity = Entity::new(
             object_controller,
-            Rect::new((0_u16, 0_u16).into(), (8_u16, 12_u16).into()),
+            Rect::new((0_u16, 0_u16).into(), (4_u16, 12_u16).into()),
         );
         entity
             .sprite
@@ -496,11 +497,12 @@ impl<'a> Player<'a> {
             entity,
             facing: Tri::Zero,
             state: PlayerState::OnGround,
-            sword: SwordState::ShortSword,
+            sword: SwordState::LongSword,
             sprite_offset: 0,
             attack_timer: AttackTimer::Idle,
             fudge_factor: (0, 0).into(),
             hurtbox: None,
+            damage_cooldown: 0,
         }
     }
 
@@ -644,7 +646,30 @@ impl<'a> Player<'a> {
             self.state = PlayerState::InAir;
         }
 
+        if self.damage_cooldown > 0 {
+            self.damage_cooldown -= 1;
+        }
+
         self.sprite_offset += 1;
+    }
+
+    // retuns true if the player is alive and false otherwise
+    fn damage(&mut self) -> bool {
+        if self.damage_cooldown != 0 {
+            return true;
+        }
+
+        self.damage_cooldown = 120;
+        let new_sword = match self.sword {
+            SwordState::LongSword => Some(SwordState::ShortSword),
+            SwordState::ShortSword => None,
+        };
+        if let Some(sword) = new_sword {
+            self.sword = sword;
+            true
+        } else {
+            false
+        }
     }
 
     fn commit(&mut self, offset: Vector2D<Number>) {
@@ -682,11 +707,13 @@ impl BatData {
     }
 
     fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
+        let mut instruction = EnemyInstruction::None;
         let should_die = player
             .hurtbox
             .as_ref()
             .map(|hurtbox| hurtbox.touches(entity.collider()))
             .unwrap_or(false);
+        let should_damage = player.entity.collider().touches(entity.collider());
 
         match &mut self.bat_state {
             BatState::Idle => {
@@ -704,6 +731,8 @@ impl BatData {
 
                 if should_die {
                     self.bat_state = BatState::Dead;
+                } else if should_damage {
+                    instruction = EnemyInstruction::DamagePlayer;
                 }
             }
             BatState::Chasing(count) => {
@@ -729,6 +758,8 @@ impl BatData {
 
                 if should_die {
                     self.bat_state = BatState::Dead;
+                } else if should_damage {
+                    instruction = EnemyInstruction::DamagePlayer;
                 }
             }
             BatState::Dead => {
@@ -741,7 +772,7 @@ impl BatData {
                 entity.update_position(level);
             }
         }
-        EnemyInstruction::None
+        instruction
     }
 }
 
@@ -760,6 +791,15 @@ impl SlimeData {
     }
 
     fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
+        let mut instruction = EnemyInstruction::None;
+
+        let should_die = player
+            .hurtbox
+            .as_ref()
+            .map(|h| h.touches(entity.collider()))
+            .unwrap_or(false);
+        let should_damage = player.entity.collider().touches(entity.collider());
+
         match &mut self.slime_state {
             SlimeState::Idle => {
                 self.sprite_offset += 1;
@@ -783,10 +823,10 @@ impl SlimeData {
                     self.slime_state = SlimeState::Chasing(direction);
                     self.sprite_offset = 0;
                 }
-                if let Some(hurtbox) = &player.hurtbox {
-                    if hurtbox.touches(entity.collider()) {
-                        self.slime_state = SlimeState::Dead(0);
-                    }
+                if should_die {
+                    self.slime_state = SlimeState::Dead(0);
+                } else if should_damage {
+                    instruction = EnemyInstruction::DamagePlayer
                 }
             }
             SlimeState::Chasing(direction) => {
@@ -819,10 +859,10 @@ impl SlimeData {
                         self.sprite_offset = 6 * 6;
                     }
                 }
-                if let Some(hurtbox) = &player.hurtbox {
-                    if hurtbox.touches(entity.collider()) {
-                        self.slime_state = SlimeState::Dead(0);
-                    }
+                if should_die {
+                    self.slime_state = SlimeState::Dead(0);
+                } else if should_damage {
+                    instruction = EnemyInstruction::DamagePlayer
                 }
             }
             SlimeState::Dead(count) => {
@@ -834,7 +874,7 @@ impl SlimeData {
                 }
             }
         }
-        EnemyInstruction::None
+        instruction
     }
 }
 
@@ -848,7 +888,7 @@ impl EnemyData {
     fn collision_mask(&self) -> Rect<u16> {
         match self {
             EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
-            EnemyData::Bat(_) => Rect::new((1u16, 0u16).into(), (15u16, 6u16).into()),
+            EnemyData::Bat(_) => Rect::new((0u16, 0u16).into(), (12u16, 4u16).into()),
         }
     }
 
@@ -901,6 +941,8 @@ enum GameStatus {
 
 impl<'a> Game<'a> {
     fn advance_frame(&mut self) -> GameStatus {
+        let mut state = GameStatus::Continue;
+
         self.input.update();
         self.player.update(&self.input, &self.level);
         self.player.commit((0, 0).into());
@@ -912,8 +954,12 @@ impl<'a> Game<'a> {
                 EnemyInstruction::Remove => {
                     remove.push(idx);
                 }
+                EnemyInstruction::DamagePlayer => {
+                    if !self.player.damage() {
+                        state = GameStatus::Lost;
+                    }
+                }
                 EnemyInstruction::None => {}
-                EnemyInstruction::DamagePlayer => {}
             }
             enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
         }
@@ -923,7 +969,7 @@ impl<'a> Game<'a> {
         }
 
         self.frame_count += 1;
-        GameStatus::Continue
+        state
     }
 
     fn new(object: &'a ObjectControl, level: Level) -> Self {
@@ -992,7 +1038,12 @@ fn game_with_level(gba: &mut agb::Gba) {
     loop {
         vblank.wait_for_vblank();
         mixer.vblank();
-        game.advance_frame();
+        match game.advance_frame() {
+            GameStatus::Continue => {}
+            GameStatus::Lost | GameStatus::Won => {
+                break;
+            }
+        }
     }
 }
 
@@ -1004,9 +1055,9 @@ mod tilemap {
 fn main() -> ! {
     let mut gba = agb::Gba::new();
 
-    game_with_level(&mut gba);
-
-    loop {}
+    loop {
+        game_with_level(&mut gba);
+    }
 }
 
 fn ping_pong(i: u16, n: u16) -> u16 {
