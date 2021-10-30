@@ -4,6 +4,8 @@
 extern crate agb;
 extern crate alloc;
 
+mod rng;
+
 use alloc::vec::Vec;
 
 use agb::{
@@ -1047,6 +1049,8 @@ fn game_with_level(gba: &mut agb::Gba) {
                 break;
             }
         }
+
+        get_random(); // advance RNG to make it less predictable between runs
     }
 }
 
@@ -1071,4 +1075,10 @@ fn ping_pong(i: u16, n: u16) -> u16 {
     } else {
         i
     }
+}
+
+static mut RANDOM_GENERATOR: rng::RandomNumberGenerator = rng::RandomNumberGenerator::new();
+
+fn get_random() -> i32 {
+    unsafe { RANDOM_GENERATOR.next() }
 }
