@@ -185,7 +185,8 @@ impl<'a> Entity<'a> {
             )
                 .into(),
         );
-        number_collision.position = self.position + number_collision.position;
+        number_collision.position =
+            self.position + number_collision.position - number_collision.size / 2;
         number_collision
     }
 
@@ -197,8 +198,9 @@ impl<'a> Entity<'a> {
     ) -> (Vector2D<Number>, bool) {
         let number_collision = self.collider();
 
-        let center_collision_point: Vector2D<Number> =
-            number_collision.position + number_collision.size.hadamard(direction) / 2;
+        let center_collision_point: Vector2D<Number> = number_collision.position
+            + number_collision.size / 2
+            + number_collision.size.hadamard(direction) / 2;
 
         let direction_transpose: Vector2D<Number> = direction.swap();
         let small = direction_transpose * Number::new(4) / 64;
@@ -713,7 +715,7 @@ impl BatData {
             .as_ref()
             .map(|hurtbox| hurtbox.touches(entity.collider()))
             .unwrap_or(false);
-        let should_damage = player.entity.collider().touches(entity.collider());
+        let should_damage = entity.collider().contains_point(player.entity.position);
 
         match &mut self.bat_state {
             BatState::Idle => {
@@ -798,7 +800,7 @@ impl SlimeData {
             .as_ref()
             .map(|h| h.touches(entity.collider()))
             .unwrap_or(false);
-        let should_damage = player.entity.collider().touches(entity.collider());
+        let should_damage = entity.collider().contains_point(player.entity.position);
 
         match &mut self.slime_state {
             SlimeState::Idle => {
