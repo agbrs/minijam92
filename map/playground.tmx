@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.7.2" orientation="orthogonal" renderorder="right-down" width="60" height="30" tilewidth="8" tileheight="8" infinite="0" backgroundcolor="#53269a" nextlayerid="5" nextobjectid="4">
+<map version="1.5" tiledversion="1.7.2" orientation="orthogonal" renderorder="right-down" width="60" height="30" tilewidth="8" tileheight="8" infinite="0" backgroundcolor="#53269a" nextlayerid="5" nextobjectid="5">
  <tileset firstgid="1" source="background.tsx"/>
  <layer id="4" name="Clouds" width="60" height="30">
   <data encoding="csv">
@@ -111,6 +111,9 @@
    <point/>
   </object>
   <object id="3" type="Slime Spawn" x="80" y="56">
+   <point/>
+  </object>
+  <object id="4" type="Bat Spawn" x="144" y="40">
    <point/>
   </object>
  </objectgroup>

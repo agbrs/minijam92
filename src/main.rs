@@ -28,6 +28,7 @@ struct Level {
     clouds: BackgroundRegular<'static>,
 
     slime_spawns: Vec<(u16, u16)>,
+    bat_spawns: Vec<(u16, u16)>,
 }
 
 impl Level {
@@ -74,12 +75,19 @@ impl Level {
             .map(|(i, x)| (*x, tilemap::SLIME_SPAWNS_Y[i]))
             .collect();
 
+        let bat_spawns = tilemap::BAT_SPAWNS_X
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (*x, tilemap::BAT_SPAWNS_Y[i]))
+            .collect();
+
         Self {
             background: backdrop,
             foreground,
             clouds,
 
             slime_spawns,
+            bat_spawns,
         }
     }
 
@@ -825,7 +833,7 @@ impl<'a> Game<'a> {
     }
 
     fn new(object: &'a ObjectControl, level: Level) -> Self {
-        let slimes = level
+        let mut enemies: Vec<_> = level
             .slime_spawns
             .iter()
             .map(|slime_spawn| {
@@ -835,13 +843,25 @@ impl<'a> Game<'a> {
             })
             .collect();
 
+        let mut bats: Vec<_> = level
+            .bat_spawns
+            .iter()
+            .map(|bat_spawn| {
+                let mut bat = Enemy::new(object, EnemyData::Bat(BatData::new()));
+                bat.entity.position = (bat_spawn.0 as i32, bat_spawn.1 as i32).into();
+                bat
+            })
+            .collect();
+
+        enemies.append(&mut bats);
+
         Self {
             player: Player::new(object),
             input: ButtonController::new(),
             frame_count: 0,
             level,
 
-            enemies: slimes,
+            enemies,
         }
     }
 }

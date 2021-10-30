@@ -27,6 +27,7 @@ fn main() {
     let foreground_tiles = extract_tiles(&foreground_layer.tiles);
 
     let (slimes_x, slimes_y) = get_spawn_locations(&map.object_groups[0], "Slime Spawn");
+    let (bats_x, bats_y) = get_spawn_locations(&map.object_groups[0], "Bat Spawn");
 
     let mut tile_types = HashMap::new();
 
@@ -48,6 +49,9 @@ fn main() {
 
         pub const SLIME_SPAWNS_X: &[u16] = &[#(#slimes_x),*];
         pub const SLIME_SPAWNS_Y: &[u16] = &[#(#slimes_y),*];
+
+        pub const BAT_SPAWNS_X: &[u16] = &[#(#bats_x),*];
+        pub const BAT_SPAWNS_Y: &[u16] = &[#(#bats_y),*];
 
         pub const TILE_TYPES: &[u8] = &[#(#tile_types),*];
     };
