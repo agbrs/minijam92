@@ -233,48 +233,95 @@ enum PlayerState {
 #[derive(Clone, Copy)]
 enum SwordState {
     LongSword,
+    ShortSword,
 }
 
 impl SwordState {
+    fn idle_animation(self, counter: &mut u16) -> u16 {
+        match self {
+            SwordState::LongSword => {
+                if *counter >= 4 * 8 {
+                    *counter = 0;
+                }
+                (0 + *counter / 8) * 4
+            }
+            SwordState::ShortSword => {
+                if *counter >= 4 * 8 {
+                    *counter = 0;
+                }
+                (41 + *counter / 8) * 4
+            }
+        }
+    }
+    fn jump_offset(self) -> u16 {
+        match self {
+            SwordState::LongSword => 10,
+            SwordState::ShortSword => 51,
+        }
+    }
+    fn walk_animation(self, counter: &mut u16) -> u16 {
+        match self {
+            SwordState::LongSword => {
+                if *counter >= 6 * 4 {
+                    *counter = 0;
+                }
+                (4 + *counter / 4) * 4
+            }
+            SwordState::ShortSword => {
+                if *counter >= 6 * 4 {
+                    *counter = 0;
+                }
+                (45 + *counter / 4) * 4
+            }
+        }
+    }
     fn attack_duration(self) -> u16 {
         match self {
             SwordState::LongSword => 60,
+            SwordState::ShortSword => 40,
         }
     }
     fn jump_attack_duration(self) -> u16 {
         match self {
             SwordState::LongSword => 34,
+            SwordState::ShortSword => 28,
         }
     }
     fn attack_frame(self, timer: u16) -> u16 {
         match self {
             SwordState::LongSword => (self.attack_duration() - timer) / 8,
+            SwordState::ShortSword => (self.attack_duration() - timer) / 8,
         }
     }
     fn jump_attack_frame(self, timer: u16) -> u16 {
         match self {
             SwordState::LongSword => (self.jump_attack_duration() - timer) / 8,
+            SwordState::ShortSword => (self.jump_attack_duration() - timer) / 8,
         }
     }
     fn hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 7,
+            SwordState::ShortSword => 7,
         }
     }
     fn jump_attack_hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 13,
+            SwordState::ShortSword => 54,
         }
     }
 
     fn cooldown_time(self) -> u16 {
         match self {
             SwordState::LongSword => 20,
+            SwordState::ShortSword => 10,
         }
     }
     fn to_sprite_id(self, frame: u16) -> u16 {
         match self {
             SwordState::LongSword => (16 + frame) * 4,
+            SwordState::ShortSword => (57 + frame) * 4,
         }
     }
     fn to_jump_sprite_id(self, frame: u16) -> u16 {
@@ -286,17 +333,26 @@ impl SwordState {
                     (24 + frame) * 4
                 }
             }
+            SwordState::ShortSword => {
+                if frame == self.jump_attack_hold_frame() {
+                    frame * 4
+                } else {
+                    (65 + frame) * 4
+                }
+            }
         }
     }
     fn fudge(self, frame: u16) -> i32 {
         match self {
             SwordState::LongSword => long_sword_fudge(frame),
+            SwordState::ShortSword => short_sword_fudge(frame),
         }
     }
     // origin at top left pre fudge boxes
     fn ground_attack_hurtbox(self, frame: u16) -> Option<Rect<Number>> {
         match self {
             SwordState::LongSword => long_sword_hurtbox(frame),
+            SwordState::ShortSword => short_sword_hurtbox(frame),
         }
     }
 }
@@ -311,6 +367,34 @@ fn long_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
         5 => Some(Rect::new((6, 5).into(), (10, 9).into())),
         6 => Some(Rect::new((6, 5).into(), (10, 9).into())),
         7 => Some(Rect::new((6, 5).into(), (10, 9).into())),
+        _ => unreachable!(),
+    }
+}
+
+fn short_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
+    match frame {
+        0 => None,
+        1 => Some(Rect::new((10, 5).into(), (3, 5).into())),
+        2 => Some(Rect::new((8, 5).into(), (6, 6).into())),
+        3 => Some(Rect::new((8, 6).into(), (8, 8).into())),
+        4 => Some(Rect::new((8, 7).into(), (5, 7).into())),
+        5 => Some(Rect::new((8, 7).into(), (7, 7).into())),
+        6 => Some(Rect::new((8, 5).into(), (7, 8).into())),
+        7 => Some(Rect::new((8, 4).into(), (4, 7).into())),
+        _ => unreachable!(),
+    }
+}
+
+fn short_sword_fudge(frame: u16) -> i32 {
+    match frame {
+        0 => 0,
+        1 => 1,
+        2 => 2,
+        3 => 3,
+        4 => 3,
+        5 => 3,
+        6 => 3,
+        7 => 3,
         _ => unreachable!(),
     }
 }
@@ -364,7 +448,7 @@ impl<'a> Player<'a> {
             entity,
             facing: Tri::Zero,
             state: PlayerState::OnGround,
-            sword: SwordState::LongSword,
+            sword: SwordState::ShortSword,
             sprite_offset: 0,
             attack_timer: AttackTimer::Idle,
             fudge_factor: (0, 0).into(),
@@ -391,21 +475,13 @@ impl<'a> Player<'a> {
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
                         self.entity.velocity.x += Number::new(x as i32) / 4;
                         if self.entity.velocity.x.abs() > Number::new(1) / 10 {
-                            if self.sprite_offset >= 6 * 4 {
-                                self.sprite_offset = 0;
-                            }
-
                             self.entity
                                 .sprite
-                                .set_tile_id((4 + self.sprite_offset / 4) * 4);
+                                .set_tile_id(self.sword.walk_animation(&mut self.sprite_offset));
                         } else {
-                            if self.sprite_offset >= 4 * 8 {
-                                self.sprite_offset = 0;
-                            }
-
                             self.entity
                                 .sprite
-                                .set_tile_id((0 + self.sprite_offset / 8) * 4);
+                                .set_tile_id(self.sword.idle_animation(&mut self.sprite_offset));
                         }
 
                         if buttons.is_just_pressed(Button::B) {
@@ -448,19 +524,20 @@ impl<'a> Player<'a> {
 
                 match &mut self.attack_timer {
                     AttackTimer::Idle => {
-                        if self.sprite_offset < 3 * 4 {
-                            self.entity
-                                .sprite
-                                .set_tile_id((10 + self.sprite_offset / 4) * 4);
+                        let sprite = if self.sprite_offset < 3 * 4 {
+                            self.sprite_offset / 4
                         } else if self.entity.velocity.y.abs() < Number::new(1) / 5 {
-                            self.entity.sprite.set_tile_id(13 * 4);
+                            3
                         } else if self.entity.velocity.y > 1.into() {
-                            self.entity.sprite.set_tile_id(15 * 4);
+                            5
                         } else if self.entity.velocity.y > 0.into() {
-                            self.entity.sprite.set_tile_id(14 * 4);
+                            4
                         } else {
-                            self.entity.sprite.set_tile_id(12 * 4);
-                        }
+                            2
+                        };
+                        self.entity
+                            .sprite
+                            .set_tile_id((sprite + self.sword.jump_offset()) * 4);
 
                         if x != Tri::Zero {
                             self.facing = x;
@@ -497,8 +574,14 @@ impl<'a> Player<'a> {
         let fudge_number = (self.fudge_factor.x, self.fudge_factor.y).into();
 
         // convert the hurtbox to a location in the game
-        self.hurtbox =
-            hurtbox.map(|h| Rect::new(self.entity.position + fudge_number + h.position, h.size));
+        self.hurtbox = hurtbox.map(|h| {
+            let mut b = Rect::new(h.position - (8, 8).into(), h.size);
+            if self.facing == Tri::Negative {
+                b.position.x = -b.position.x - b.size.x;
+            }
+            b.position += self.entity.position + fudge_number;
+            b
+        });
 
         self.entity.update_position(level);
         let (_, collided_down) = self
