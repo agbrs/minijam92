@@ -716,7 +716,7 @@ impl BatData {
             .as_ref()
             .map(|hurtbox| hurtbox.touches(entity.collider()))
             .unwrap_or(false);
-        let should_damage = entity.collider().contains_point(player.entity.position);
+        let should_damage = entity.collider().touches(player.entity.collider());
 
         match &mut self.bat_state {
             BatState::Idle => {
@@ -801,7 +801,7 @@ impl SlimeData {
             .as_ref()
             .map(|h| h.touches(entity.collider()))
             .unwrap_or(false);
-        let should_damage = entity.collider().contains_point(player.entity.position);
+        let should_damage = entity.collider().touches(player.entity.collider());
 
         match &mut self.slime_state {
             SlimeState::Idle => {
