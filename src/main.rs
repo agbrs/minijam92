@@ -511,7 +511,9 @@ impl<'a> Player<'a> {
         }
     }
 
-    fn update(&mut self, buttons: &ButtonController, level: &Level) {
+    fn update(&mut self, buttons: &ButtonController, level: &Level) -> UpdateInstruction {
+        let mut instruction = UpdateInstruction::None;
+
         let x = buttons.x_tri();
 
         self.fudge_factor = (0, 0).into();
@@ -647,6 +649,13 @@ impl<'a> Player<'a> {
             .collision_in_direction((0, 1).into(), 1.into(), |v| level.collides(v));
 
         if collided_down {
+            if self.state == PlayerState::InAir {
+                instruction = UpdateInstruction::CreateParticle(
+                    ParticleData::new_dust(),
+                    self.entity.position,
+                );
+            }
+
             self.state = PlayerState::OnGround;
         } else {
             self.state = PlayerState::InAir;
@@ -657,6 +666,8 @@ impl<'a> Player<'a> {
         }
 
         self.sprite_offset += 1;
+
+        instruction
     }
 
     // retuns true if the player is alive and false otherwise
@@ -1013,7 +1024,16 @@ impl<'a> Game<'a> {
         let mut state = GameStatus::Continue;
 
         self.input.update();
-        self.player.update(&self.input, &self.level);
+        match self.player.update(&self.input, &self.level) {
+            UpdateInstruction::CreateParticle(data, position) => {
+                let mut new_particle = Particle::new(object_controller, data);
+                new_particle.entity.position = position;
+
+                self.particles.insert(new_particle);
+            }
+            _ => {}
+        }
+
         self.player.commit((0, 0).into());
 
         let mut remove = Vec::with_capacity(10);
