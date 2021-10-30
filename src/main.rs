@@ -122,6 +122,7 @@ struct Game<'a> {
     level: Level,
 
     enemies: Arena<Enemy<'a>>,
+    particles: Arena<Particle<'a>>,
 }
 
 struct Entity<'a> {
@@ -937,6 +938,68 @@ impl<'a> Enemy<'a> {
     }
 }
 
+enum ParticleData {
+    Dust(u16),
+}
+
+impl ParticleData {
+    fn new_dust() -> Self {
+        Self::Dust(0)
+    }
+
+    fn tile_id(&self) -> u16 {
+        match self {
+            ParticleData::Dust(frame) => 70,
+        }
+    }
+
+    fn update(&mut self, entity: &mut Entity, _player: &Player, _level: &Level) -> bool {
+        match self {
+            ParticleData::Dust(frame) => {
+                if *frame == 8 {
+                    return true;
+                }
+
+                entity.sprite.set_tile_id((70 + *frame) * 4);
+
+                *frame += 1;
+                return false;
+            }
+        }
+    }
+}
+
+struct Particle<'a> {
+    entity: Entity<'a>,
+    particle_data: ParticleData,
+}
+
+impl<'a> Particle<'a> {
+    fn new(object_controller: &'a ObjectControl, particle_data: ParticleData) -> Self {
+        let mut entity = Entity::new(
+            object_controller,
+            Rect::new((0u16, 0u16).into(), (0u16, 0u16).into()),
+        );
+
+        entity
+            .sprite
+            .set_sprite_size(agb::display::object::Size::S16x16);
+        entity.sprite.set_tile_id(particle_data.tile_id());
+        entity.sprite.show();
+
+        entity.sprite.commit();
+
+        Self {
+            entity,
+            particle_data,
+        }
+    }
+
+    fn update(&mut self, player: &Player, level: &Level) -> bool {
+        self.particle_data.update(&mut self.entity, player, level)
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum GameStatus {
     Continue,
@@ -973,6 +1036,21 @@ impl<'a> Game<'a> {
             self.enemies.remove(i);
         }
 
+        let mut remove = Vec::with_capacity(10);
+
+        for (idx, particle) in self.particles.iter_mut() {
+            if particle.update(&self.player, &self.level) {
+                remove.push(idx);
+            }
+            particle
+                .entity
+                .commit_with_fudge((0, 0).into(), (0, 0).into());
+        }
+
+        for i in remove {
+            self.particles.remove(i);
+        }
+
         self.frame_count += 1;
         state
     }
@@ -1002,6 +1080,7 @@ impl<'a> Game<'a> {
             level,
 
             enemies,
+            particles: Arena::with_capacity(30),
         }
     }
 }
@@ -1080,5 +1159,5 @@ fn ping_pong(i: u16, n: u16) -> u16 {
 static mut RANDOM_GENERATOR: rng::RandomNumberGenerator = rng::RandomNumberGenerator::new();
 
 fn get_random() -> i32 {
-    unsafe { RANDOM_GENERATOR.next() }
+    unsafe { &mut RANDOM_GENERATOR }.next()
 }
