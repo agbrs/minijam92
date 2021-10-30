@@ -400,6 +400,9 @@ impl SwordState {
             SwordState::ShortSword => short_sword_hurtbox(frame),
         }
     }
+    fn air_attack_hurtbox(self, frame: u16) -> Option<Rect<Number>> {
+        Some(Rect::new((2, 2).into(), (12, 12).into()))
+    }
 }
 
 fn long_sword_hurtbox(frame: u16) -> Option<Rect<Number>> {
@@ -601,6 +604,8 @@ impl<'a> Player<'a> {
                         self.entity
                             .sprite
                             .set_tile_id(self.sword.to_jump_sprite_id(frame));
+
+                        hurtbox = self.sword.air_attack_hurtbox(frame);
 
                         if *a == 0 {
                             self.attack_timer = AttackTimer::Idle;
