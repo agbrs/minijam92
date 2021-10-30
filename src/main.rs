@@ -1443,6 +1443,7 @@ impl<'a> Game<'a> {
             .update(&mut self.enemies, object_controller, &self.player)
         {
             BossInstruction::Dead => {
+                sfx.sunrise();
                 self.boss = BossState::Following(FollowingBoss::new(object_controller));
                 self.move_state = MoveState::FollowingPlayer;
             }

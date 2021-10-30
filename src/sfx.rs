@@ -42,6 +42,17 @@ impl<'a> Sfx<'a> {
         self.bgm = self.mixer.play_sound(channel);
     }
 
+    pub fn sunrise(&mut self) {
+        if let Some(bgm) = &self.bgm {
+            let channel = self.mixer.get_channel(&bgm).unwrap();
+            channel.stop();
+        }
+
+        let mut channel = SoundChannel::new_high_priority(SUNRISE);
+        channel.stereo().should_loop();
+        self.bgm = self.mixer.play_sound(channel);
+    }
+
     pub fn jump(&mut self) {
         let r = get_random() % 3;
 
