@@ -16,6 +16,7 @@ use agb::{
     number::{FixedNum, Rect, Vector2D},
     sound::mixer::SoundChannel,
 };
+use generational_arena::Arena;
 
 agb::include_gfx!("gfx/objects.toml");
 agb::include_gfx!("gfx/background.toml");
@@ -118,7 +119,7 @@ struct Game<'a> {
     frame_count: u32,
     level: Level,
 
-    enemies: Vec<Enemy<'a>>,
+    enemies: Arena<Enemy<'a>>,
 }
 
 struct Entity<'a> {
@@ -841,7 +842,7 @@ impl<'a> Game<'a> {
         self.player.update(&self.input, &self.level);
         self.player.commit((0, 0).into());
 
-        for enemy in self.enemies.iter_mut() {
+        for (idx, enemy) in self.enemies.iter_mut() {
             enemy.update(&self.player, &self.level);
             enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
         }
@@ -851,27 +852,22 @@ impl<'a> Game<'a> {
     }
 
     fn new(object: &'a ObjectControl, level: Level) -> Self {
-        let mut enemies: Vec<_> = level
-            .slime_spawns
-            .iter()
-            .map(|slime_spawn| {
-                let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
-                slime.entity.position = (slime_spawn.0 as i32, slime_spawn.1 as i32 - 7).into();
-                slime
-            })
-            .collect();
+        let mut enemies = Arena::with_capacity(100);
+        for slime in level.slime_spawns.iter().map(|slime_spawn| {
+            let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
+            slime.entity.position = (slime_spawn.0 as i32, slime_spawn.1 as i32 - 7).into();
+            slime
+        }) {
+            enemies.insert(slime);
+        }
 
-        let mut bats: Vec<_> = level
-            .bat_spawns
-            .iter()
-            .map(|bat_spawn| {
-                let mut bat = Enemy::new(object, EnemyData::Bat(BatData::new()));
-                bat.entity.position = (bat_spawn.0 as i32, bat_spawn.1 as i32).into();
-                bat
-            })
-            .collect();
-
-        enemies.append(&mut bats);
+        for bat in level.bat_spawns.iter().map(|bat_spawn| {
+            let mut bat = Enemy::new(object, EnemyData::Bat(BatData::new()));
+            bat.entity.position = (bat_spawn.0 as i32, bat_spawn.1 as i32).into();
+            bat
+        }) {
+            enemies.insert(bat);
+        }
 
         Self {
             player: Player::new(object),
