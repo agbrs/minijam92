@@ -695,6 +695,19 @@ impl<'a> Player<'a> {
         }
     }
 
+    fn heal(&mut self) {
+        let new_sword = match self.sword {
+            SwordState::LongSword => None,
+            SwordState::ShortSword => Some(SwordState::LongSword),
+        };
+
+        if let Some(sword) = new_sword {
+            self.sword = sword;
+        }
+
+        self.damage_cooldown = 120;
+    }
+
     fn commit(&mut self, offset: Vector2D<Number>) {
         self.entity.commit_with_fudge(offset, self.fudge_factor);
     }
@@ -914,6 +927,7 @@ impl SlimeData {
 
 enum UpdateInstruction {
     None,
+    HealPlayerAndRemove,
     Remove,
     DamagePlayer,
     CreateParticle(ParticleData, Vector2D<Number>),
@@ -988,21 +1002,26 @@ impl ParticleData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, _level: &Level) -> bool {
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        _level: &Level,
+    ) -> UpdateInstruction {
         match self {
             ParticleData::Dust(frame) => {
                 if *frame == 8 * 3 {
-                    return true;
+                    return UpdateInstruction::Remove;
                 }
 
                 entity.sprite.set_tile_id((70 + *frame / 3) * 4);
 
                 *frame += 1;
-                return false;
+                return UpdateInstruction::None;
             }
             ParticleData::Health(frame) => {
                 if *frame > 8 * 3 * 6 {
-                    return true; // have played the animation 6 times
+                    return UpdateInstruction::Remove; // have played the animation 6 times
                 }
 
                 entity.sprite.set_tile_id((88 + (*frame / 3) % 8) * 4);
@@ -1013,8 +1032,8 @@ impl ParticleData {
                     let speed = Number::new(2);
                     let target_velocity = player.entity.position - entity.position;
 
-                    if target_velocity.manhattan_distance() < 1.into() {
-                        return true; // TODO: Heal here
+                    if target_velocity.manhattan_distance() < 5.into() {
+                        return UpdateInstruction::HealPlayerAndRemove;
                     }
 
                     entity.velocity = target_velocity.normalise() * speed;
@@ -1024,7 +1043,7 @@ impl ParticleData {
 
                 *frame += 1;
 
-                return false;
+                UpdateInstruction::None
             }
         }
     }
@@ -1056,7 +1075,7 @@ impl<'a> Particle<'a> {
         }
     }
 
-    fn update(&mut self, player: &Player, level: &Level) -> bool {
+    fn update(&mut self, player: &Player, level: &Level) -> UpdateInstruction {
         self.particle_data.update(&mut self.entity, player, level)
     }
 }
@@ -1092,6 +1111,10 @@ impl<'a> Game<'a> {
                 UpdateInstruction::Remove => {
                     remove.push(idx);
                 }
+                UpdateInstruction::HealPlayerAndRemove => {
+                    self.player.heal();
+                    remove.push(idx);
+                }
                 UpdateInstruction::DamagePlayer => {
                     if !self.player.damage() {
                         state = GameStatus::Lost;
@@ -1115,8 +1138,19 @@ impl<'a> Game<'a> {
         let mut remove = Vec::with_capacity(10);
 
         for (idx, particle) in self.particles.iter_mut() {
-            if particle.update(&self.player, &self.level) {
-                remove.push(idx);
+            match particle.update(&self.player, &self.level) {
+                UpdateInstruction::Remove => remove.push(idx),
+                UpdateInstruction::HealPlayerAndRemove => {
+                    self.player.heal();
+                    remove.push(idx);
+                }
+                UpdateInstruction::DamagePlayer => {
+                    if !self.player.damage() {
+                        state = GameStatus::Lost;
+                    }
+                }
+                UpdateInstruction::CreateParticle(_, _) => {}
+                UpdateInstruction::None => {}
             }
             particle
                 .entity
