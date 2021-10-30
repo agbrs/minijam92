@@ -117,18 +117,6 @@ impl Level {
     }
 }
 
-struct Game<'a> {
-    player: Player<'a>,
-    input: ButtonController,
-    frame_count: u32,
-    level: Level,
-    offset: Vector2D<Number>,
-    shake_time: u16,
-
-    enemies: Arena<Enemy<'a>>,
-    particles: Arena<Particle<'a>>,
-}
-
 struct Entity<'a> {
     sprite: ObjectStandard<'a>,
     position: Vector2D<Number>,
@@ -1140,6 +1128,20 @@ enum GameStatus {
     Won,
 }
 
+struct Game<'a> {
+    player: Player<'a>,
+    input: ButtonController,
+    frame_count: u32,
+    level: Level,
+    offset: Vector2D<Number>,
+    shake_time: u16,
+
+    enemies: Arena<Enemy<'a>>,
+    particles: Arena<Particle<'a>>,
+    slime_load: usize,
+    bat_load: usize,
+}
+
 impl<'a> Game<'a> {
     fn advance_frame(
         &mut self,
@@ -1149,8 +1151,9 @@ impl<'a> Game<'a> {
         let mut state = GameStatus::Continue;
 
         self.offset += Into::<Vector2D<Number>>::into((1, 0)) / 4;
+        self.load_enemies(object_controller);
 
-        if self.player.entity.position.x < self.offset.x {
+        if self.player.entity.position.x < self.offset.x - 8 {
             let (alive, damaged) = self.player.damage();
             if !alive {
                 state = GameStatus::Lost;
@@ -1188,6 +1191,11 @@ impl<'a> Game<'a> {
 
         let mut remove = Vec::with_capacity(10);
         for (idx, enemy) in self.enemies.iter_mut() {
+            if enemy.entity.position.x < self.offset.x - 8 {
+                remove.push(idx);
+                continue;
+            }
+
             match enemy.update(&self.player, &self.level, sfx) {
                 UpdateInstruction::Remove => {
                     remove.push(idx);
@@ -1275,24 +1283,34 @@ impl<'a> Game<'a> {
         state
     }
 
+    fn load_enemies(&mut self, object_controller: &'a ObjectControl) {
+        if self.slime_load < self.level.slime_spawns.len() {
+            for (idx, slime_spawn) in self.level.slime_spawns[self.slime_load..]
+                .iter()
+                .enumerate()
+            {
+                if slime_spawn.0 as i32 > self.offset.x.floor() + 300 {
+                    break;
+                }
+                self.slime_load = idx + 1;
+                let mut slime = Enemy::new(object_controller, EnemyData::Slime(SlimeData::new()));
+                slime.entity.position = (slime_spawn.0 as i32, slime_spawn.1 as i32 - 7).into();
+                self.enemies.insert(slime);
+            }
+        }
+        if self.bat_load < self.level.bat_spawns.len() {
+            for (idx, bat_spawn) in self.level.bat_spawns[self.bat_load..].iter().enumerate() {
+                if bat_spawn.0 as i32 > self.offset.x.floor() + 300 {
+                    break;
+                }
+                self.bat_load = idx + 1;
+                let mut bat = Enemy::new(object_controller, EnemyData::Bat(BatData::new()));
+                bat.entity.position = (bat_spawn.0 as i32, bat_spawn.1 as i32).into();
+                self.enemies.insert(bat);
+            }
+        }
+    }
     fn new(object: &'a ObjectControl, level: Level) -> Self {
-        let mut enemies = Arena::with_capacity(100);
-        for slime in level.slime_spawns.iter().map(|slime_spawn| {
-            let mut slime = Enemy::new(object, EnemyData::Slime(SlimeData::new()));
-            slime.entity.position = (slime_spawn.0 as i32, slime_spawn.1 as i32 - 7).into();
-            slime
-        }) {
-            enemies.insert(slime);
-        }
-
-        for bat in level.bat_spawns.iter().map(|bat_spawn| {
-            let mut bat = Enemy::new(object, EnemyData::Bat(BatData::new()));
-            bat.entity.position = (bat_spawn.0 as i32, bat_spawn.1 as i32).into();
-            bat
-        }) {
-            enemies.insert(bat);
-        }
-
         Self {
             player: Player::new(object),
             input: ButtonController::new(),
@@ -1301,7 +1319,9 @@ impl<'a> Game<'a> {
             offset: (0, 0).into(),
             shake_time: 0,
 
-            enemies,
+            enemies: Arena::with_capacity(100),
+            slime_load: 0,
+            bat_load: 0,
             particles: Arena::with_capacity(30),
         }
     }
