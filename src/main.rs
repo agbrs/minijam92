@@ -681,7 +681,7 @@ impl BatData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
         let should_die = player
             .hurtbox
             .as_ref()
@@ -741,6 +741,7 @@ impl BatData {
                 entity.update_position(level);
             }
         }
+        EnemyInstruction::None
     }
 }
 
@@ -758,7 +759,7 @@ impl SlimeData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
         match &mut self.slime_state {
             SlimeState::Idle => {
                 self.sprite_offset += 1;
@@ -829,11 +830,18 @@ impl SlimeData {
                     entity.sprite.set_tile_id((36 + *count / 4) * 4);
                     *count += 1;
                 } else {
-                    entity.visible = false;
+                    return EnemyInstruction::Remove;
                 }
             }
         }
+        EnemyInstruction::None
     }
+}
+
+enum EnemyInstruction {
+    None,
+    Remove,
+    DamagePlayer,
 }
 
 impl EnemyData {
@@ -851,7 +859,7 @@ impl EnemyData {
         }
     }
 
-    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) {
+    fn update(&mut self, entity: &mut Entity, player: &Player, level: &Level) -> EnemyInstruction {
         match self {
             EnemyData::Slime(data) => data.update(entity, player, level),
             EnemyData::Bat(data) => data.update(entity, player, level),
@@ -879,8 +887,8 @@ impl<'a> Enemy<'a> {
         Self { entity, enemy_data }
     }
 
-    fn update(&mut self, player: &Player, level: &Level) {
-        self.enemy_data.update(&mut self.entity, player, level);
+    fn update(&mut self, player: &Player, level: &Level) -> EnemyInstruction {
+        self.enemy_data.update(&mut self.entity, player, level)
     }
 }
 
@@ -897,9 +905,21 @@ impl<'a> Game<'a> {
         self.player.update(&self.input, &self.level);
         self.player.commit((0, 0).into());
 
+        let mut remove = Vec::with_capacity(10);
+
         for (idx, enemy) in self.enemies.iter_mut() {
-            enemy.update(&self.player, &self.level);
+            match enemy.update(&self.player, &self.level) {
+                EnemyInstruction::Remove => {
+                    remove.push(idx);
+                }
+                EnemyInstruction::None => {}
+                EnemyInstruction::DamagePlayer => {}
+            }
             enemy.entity.commit_with_fudge((0, 0).into(), (0, 0).into());
+        }
+
+        for i in remove {
+            self.enemies.remove(i);
         }
 
         self.frame_count += 1;
