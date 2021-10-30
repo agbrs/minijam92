@@ -19,7 +19,6 @@ use agb::{
     },
     input::{Button, ButtonController, Tri},
     number::{FixedNum, Rect, Vector2D},
-    sound::mixer::SoundChannel,
 };
 use generational_arena::Arena;
 
@@ -522,7 +521,12 @@ impl<'a> Player<'a> {
         }
     }
 
-    fn update(&mut self, buttons: &ButtonController, level: &Level) -> UpdateInstruction {
+    fn update(
+        &mut self,
+        buttons: &ButtonController,
+        level: &Level,
+        sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
 
         let x = buttons.x_tri();
@@ -558,6 +562,8 @@ impl<'a> Player<'a> {
                             self.entity.velocity.y -= self.sword.jump_impulse();
                             self.state = PlayerState::InAir;
                             self.sprite_offset = 0;
+
+                            sfx.jump();
                         }
                     }
                     AttackTimer::Attack(a) => {
@@ -1094,7 +1100,11 @@ enum GameStatus {
 }
 
 impl<'a> Game<'a> {
-    fn advance_frame(&mut self, object_controller: &'a ObjectControl) -> GameStatus {
+    fn advance_frame(
+        &mut self,
+        object_controller: &'a ObjectControl,
+        sfx: &mut sfx::Sfx,
+    ) -> GameStatus {
         let mut state = GameStatus::Continue;
 
         let mut this_frame_offset = self.offset;
@@ -1110,7 +1120,7 @@ impl<'a> Game<'a> {
         }
 
         self.input.update();
-        match self.player.update(&self.input, &self.level) {
+        match self.player.update(&self.input, &self.level, sfx) {
             UpdateInstruction::CreateParticle(data, position) => {
                 let mut new_particle = Particle::new(object_controller, data);
                 new_particle.entity.position = position;
@@ -1271,7 +1281,7 @@ fn game_with_level(gba: &mut agb::Gba) {
     loop {
         vblank.wait_for_vblank();
         sfx.vblank();
-        match game.advance_frame(&object) {
+        match game.advance_frame(&object, &mut sfx) {
             GameStatus::Continue => {}
             GameStatus::Lost | GameStatus::Won => {
                 break;
