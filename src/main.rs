@@ -888,6 +888,7 @@ enum UpdateInstruction {
     None,
     Remove,
     DamagePlayer,
+    CreateParticle(ParticleData, Vector2D<Number>),
 }
 
 impl EnemyData {
@@ -1008,7 +1009,7 @@ enum GameStatus {
 }
 
 impl<'a> Game<'a> {
-    fn advance_frame(&mut self) -> GameStatus {
+    fn advance_frame(&mut self, object_controller: &'a ObjectControl) -> GameStatus {
         let mut state = GameStatus::Continue;
 
         self.input.update();
@@ -1026,6 +1027,12 @@ impl<'a> Game<'a> {
                     if !self.player.damage() {
                         state = GameStatus::Lost;
                     }
+                }
+                UpdateInstruction::CreateParticle(data, position) => {
+                    let mut new_particle = Particle::new(object_controller, data);
+                    new_particle.entity.position = position;
+
+                    self.particles.insert(new_particle);
                 }
                 UpdateInstruction::None => {}
             }
@@ -1122,7 +1129,7 @@ fn game_with_level(gba: &mut agb::Gba) {
     loop {
         vblank.wait_for_vblank();
         mixer.vblank();
-        match game.advance_frame() {
+        match game.advance_frame(&object) {
             GameStatus::Continue => {}
             GameStatus::Lost | GameStatus::Won => {
                 break;
