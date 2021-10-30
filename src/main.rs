@@ -558,6 +558,7 @@ impl<'a> Player<'a> {
 
                         if buttons.is_just_pressed(Button::B) {
                             self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
+                            sfx.sword();
                         } else if buttons.is_just_pressed(Button::A) {
                             self.entity.velocity.y -= self.sword.jump_impulse();
                             self.state = PlayerState::InAir;

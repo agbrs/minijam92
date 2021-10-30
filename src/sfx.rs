@@ -53,6 +53,10 @@ impl<'a> Sfx<'a> {
         self.mixer.play_sound(channel);
     }
 
+    pub fn sword(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(SWORD_SWING));
+    }
+
     pub fn slime_boing(&mut self) {
         let mut channel = SoundChannel::new(SLIME_BOING);
         let one: Num<i16, 4> = 1.into();
