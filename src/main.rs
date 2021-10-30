@@ -1471,8 +1471,8 @@ impl<'a> Boss<'a> {
     }
     fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
         for _ in 0..(6 - self.health) {
-            let x_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into());
-            let y_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into());
+            let x_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into()) - 16;
+            let y_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into()) - 16;
             let mut flame = Enemy::new(
                 object_controller,
                 EnemyData::MiniFlame(MiniFlameData::new()),
