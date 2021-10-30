@@ -26,14 +26,7 @@ fn main() {
     let foreground_layer = &map.layers[2];
     let foreground_tiles = extract_tiles(&foreground_layer.tiles);
 
-    let slime_spawns = map.object_groups[0]
-        .objects
-        .iter()
-        .filter(|object| &object.obj_type == "Slime Spawn")
-        .map(|object| (object.x as u16, object.y as u16))
-        .collect::<Vec<_>>();
-    let slimes_x = slime_spawns.iter().map(|pos| pos.0);
-    let slimes_y = slime_spawns.iter().map(|pos| pos.1);
+    let (slimes_x, slimes_y) = get_spawn_locations(&map.object_groups[0], "Slime Spawn");
 
     let mut tile_types = HashMap::new();
 
@@ -81,4 +74,23 @@ fn get_map_id(tileid: u32) -> u16 {
         0 => 0,
         i => i as u16 - 1,
     }
+}
+
+fn get_spawn_locations<'a>(
+    object_group: &'a tiled::ObjectGroup,
+    enemy_type: &str,
+) -> (
+    impl Iterator<Item = u16> + 'a,
+    impl Iterator<Item = u16> + 'a,
+) {
+    let spawns = object_group
+        .objects
+        .iter()
+        .filter(|object| &object.obj_type == enemy_type)
+        .map(|object| (object.x as u16, object.y as u16))
+        .collect::<Vec<_>>();
+    let xs = spawns.iter().map(|pos| pos.0).collect::<Vec<_>>();
+    let ys = spawns.iter().map(|pos| pos.1).collect::<Vec<_>>();
+
+    return (xs.into_iter(), ys.into_iter());
 }
