@@ -1491,9 +1491,10 @@ impl<'a> BossState<'a> {
         enemies: &mut Arena<Enemy<'a>>,
         object_controller: &'a ObjectControl,
         player: &Player,
+        sfx: &mut sfx::Sfx,
     ) -> BossInstruction {
         match self {
-            BossState::Active(boss) => boss.update(enemies, object_controller, player),
+            BossState::Active(boss) => boss.update(enemies, object_controller, player, sfx),
             BossState::Following(boss) => {
                 boss.update(player);
                 BossInstruction::None
@@ -1615,6 +1616,7 @@ impl<'a> Boss<'a> {
         enemies: &mut Arena<Enemy<'a>>,
         object_controller: &'a ObjectControl,
         player: &Player,
+        sfx: &mut sfx::Sfx,
     ) -> BossInstruction {
         let mut instruction = BossInstruction::None;
         match &mut self.state {
@@ -1623,6 +1625,7 @@ impl<'a> Boss<'a> {
                 if *time == 0 {
                     self.target_location = self.get_next_target_location();
                     self.state = BossActiveState::MovingToTarget;
+                    sfx.boss_move();
                 }
             }
             BossActiveState::MovingToTarget => {
@@ -1632,7 +1635,7 @@ impl<'a> Boss<'a> {
                     self.entity.velocity = (0, 0).into();
                     self.state = BossActiveState::WaitingUntilExplosion(60);
                 } else {
-                    self.entity.velocity = difference / 8;
+                    self.entity.velocity = difference / 16;
                 }
             }
             BossActiveState::WaitingUntilExplosion(time) => {
@@ -1807,7 +1810,7 @@ impl<'a> Game<'a> {
 
         match self
             .boss
-            .update(&mut self.enemies, object_controller, &self.player)
+            .update(&mut self.enemies, object_controller, &self.player, sfx)
         {
             BossInstruction::Dead => {
                 let boss = match &self.boss {
