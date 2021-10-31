@@ -1821,6 +1821,8 @@ impl<'a> Game<'a> {
                     self.offset.x += difference / 8;
                     if self.offset.x > (tilemap::WIDTH as i32 * 8 - 248).into() {
                         self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
+                    } else if self.offset.x < 8.into() {
+                        self.offset.x = 8.into();
                     }
                 }
             }
