@@ -2062,7 +2062,7 @@ impl<'a> Game<'a> {
         let mut offset = (8, 8).into();
         if start_at_boss {
             player.entity.position = (133 * 8, 10 * 8).into();
-            offset = (976, 8).into();
+            offset = (130 * 8, 8).into();
         }
         Self {
             player,
