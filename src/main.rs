@@ -1256,13 +1256,13 @@ impl EmuData {
                 }
             }
             EmuState::Dead => {
-                if self.sprite_offset >= 8 * 2 {
+                if self.sprite_offset >= 8 * 4 {
                     instruction = UpdateInstruction::Remove;
                 }
 
                 entity
                     .sprite
-                    .set_tile_id((177 + self.sprite_offset / 2) * 4);
+                    .set_tile_id((177 + self.sprite_offset / 4) * 4);
                 self.sprite_offset += 1;
             }
         }
