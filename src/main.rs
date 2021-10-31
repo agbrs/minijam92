@@ -1104,6 +1104,7 @@ impl MiniFlameData {
                 }
 
                 if entity.velocity.manhattan_distance() < Number::new(1) / Number::new(4) {
+                    entity.velocity = (0, 0).into();
                     self.state = MiniFlameState::Idle(90);
                 }
 
