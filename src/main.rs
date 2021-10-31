@@ -1638,7 +1638,7 @@ impl<'a> Boss<'a> {
         entity.position = screen_coords + (144, 136).into();
         Self {
             entity,
-            health: 0,
+            health: 5,
             target_location: get_random().rem_euclid(5) as u8,
             state: BossActiveState::Damaged(60),
             timer: 0,
@@ -2177,7 +2177,7 @@ fn game_with_level(gba: &mut agb::Gba) {
                 background.get_regular().unwrap(),
             ),
             &mut background,
-            true,
+            start_at_boss,
         );
 
         start_at_boss = loop {
