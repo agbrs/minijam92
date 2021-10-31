@@ -1135,6 +1135,7 @@ enum EmuState {
     Idle,
     Charging(Tri),
     Knockback,
+    Dead,
 }
 
 struct EmuData {
@@ -1195,6 +1196,13 @@ impl EmuData {
                         self.state = EmuState::Idle;
                     }
                 }
+
+                if should_die {
+                    self.sprite_offset = 0;
+                    self.state = EmuState::Dead;
+                } else if should_damage {
+                    instruction = UpdateInstruction::DamagePlayer;
+                }
             }
             EmuState::Charging(direction) => {
                 let direction = Number::new(*direction as i32);
@@ -1218,6 +1226,13 @@ impl EmuData {
                     self.state = EmuState::Knockback;
                     entity.velocity = (-direction / 2, Number::new(-1)).into();
                 }
+
+                if should_die {
+                    self.sprite_offset = 0;
+                    self.state = EmuState::Dead;
+                } else if should_damage {
+                    instruction = UpdateInstruction::DamagePlayer;
+                }
             }
             EmuState::Knockback => {
                 let gravity: Number = 1.into();
@@ -1232,6 +1247,23 @@ impl EmuData {
                     entity.velocity.x = 0.into();
                     self.state = EmuState::Idle;
                 }
+
+                if should_die {
+                    self.sprite_offset = 0;
+                    self.state = EmuState::Dead;
+                } else if should_damage {
+                    instruction = UpdateInstruction::DamagePlayer;
+                }
+            }
+            EmuState::Dead => {
+                if self.sprite_offset >= 8 * 2 {
+                    instruction = UpdateInstruction::Remove;
+                }
+
+                entity
+                    .sprite
+                    .set_tile_id((177 + self.sprite_offset / 2) * 4);
+                self.sprite_offset += 1;
             }
         }
 
