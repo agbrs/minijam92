@@ -1646,6 +1646,7 @@ impl<'a> Boss<'a> {
                         instruction = BossInstruction::Dead;
                         self.state = BossActiveState::WaitUntilKilled;
                     } else {
+                        sfx.burning();
                         self.explode(enemies, object_controller);
                         self.state = BossActiveState::WaitingUntilDamaged(60 * 5);
                     }
@@ -1654,6 +1655,7 @@ impl<'a> Boss<'a> {
             BossActiveState::WaitingUntilDamaged(time) => {
                 *time -= 1;
                 if *time == 0 {
+                    sfx.burning();
                     self.explode(enemies, object_controller);
                     self.state = BossActiveState::WaitingUntilDamaged(60 * 5);
                 }
