@@ -2096,9 +2096,9 @@ impl<'a> Game<'a> {
 
         let c = modified_palette.get_colour(2);
 
-        modified_palette.update_colour(0, interpolate_colour(17982, 0x7FFF, time, 600));
-        modified_palette.update_colour(1, interpolate_colour(22427, 0x7FFF, time, 600));
-        modified_palette.update_colour(2, interpolate_colour(c, 0x7FFF, time, 600));
+        modified_palette.update_colour(0, interpolate_colour(17982, 0x1F, time, 600));
+        modified_palette.update_colour(1, interpolate_colour(22427, 0x1F, time, 600));
+        modified_palette.update_colour(2, interpolate_colour(c, 0x1F, time, 600));
 
         let modified_palettes = [modified_palette];
 
