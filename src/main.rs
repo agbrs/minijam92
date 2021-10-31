@@ -1021,7 +1021,7 @@ struct MiniFlameData {
 impl MiniFlameData {
     fn new() -> Self {
         Self {
-            state: MiniFlameState::Idle(90),
+            state: MiniFlameState::Chasing,
             sprite_offset: 0,
         }
     }
@@ -1104,7 +1104,6 @@ impl MiniFlameData {
                 }
 
                 if entity.velocity.manhattan_distance() < Number::new(1) / Number::new(4) {
-                    entity.velocity = (0, 0).into();
                     self.state = MiniFlameState::Idle(90);
                 }
 
@@ -1590,6 +1589,7 @@ impl<'a> Boss<'a> {
                     self.target_location = self.get_next_target_location();
                     self.state = BossActiveState::MovingToTarget;
                     if self.health == 0 {
+                        enemies.clear();
                         instruction = BossInstruction::Dead;
                         self.state = BossActiveState::WaitUntilKilled;
                     }
@@ -1642,13 +1642,14 @@ impl<'a> Boss<'a> {
     }
     fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
         for _ in 0..(6 - self.health) {
-            let x_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into()) - 16;
-            let y_offset: Number = Number::from_raw(get_random()).rem_euclid(32.into()) - 16;
+            let x_offset: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
+            let y_offset: Number = Number::from_raw(get_random()).rem_euclid(2.into()) - 1;
             let mut flame = Enemy::new(
                 object_controller,
                 EnemyData::MiniFlame(MiniFlameData::new()),
             );
-            flame.entity.position = self.entity.position + (x_offset, y_offset).into();
+            flame.entity.position = self.entity.position;
+            flame.entity.velocity = (x_offset, y_offset).into();
             enemies.insert(flame);
         }
     }
