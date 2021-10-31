@@ -755,6 +755,7 @@ enum EnemyData {
     Slime(SlimeData),
     Bat(BatData),
     MiniFlame(MiniFlameData),
+    Emu(EmuData),
 }
 
 struct BatData {
@@ -1122,6 +1123,117 @@ impl MiniFlameData {
     }
 }
 
+enum EmuState {
+    Idle,
+    Charging,
+    Knockback,
+}
+
+struct EmuData {
+    state: EmuState,
+    sprite_offset: u16,
+}
+
+impl EmuData {
+    fn new() -> Self {
+        Self {
+            state: EmuState::Idle,
+            sprite_offset: 0,
+        }
+    }
+
+    fn update(
+        &mut self,
+        entity: &mut Entity,
+        player: &Player,
+        level: &Level,
+        _sfx: &mut sfx::Sfx,
+    ) -> UpdateInstruction {
+        let mut instruction = UpdateInstruction::None;
+
+        let should_die = player
+            .hurtbox
+            .as_ref()
+            .map(|h| h.touches(entity.collider()))
+            .unwrap_or(false);
+        let should_damage = entity.collider().touches(player.entity.collider());
+
+        match &mut self.state {
+            EmuState::Idle => {
+                self.sprite_offset += 1;
+
+                if self.sprite_offset >= 3 * 16 {
+                    self.sprite_offset = 0;
+                }
+
+                entity
+                    .sprite
+                    .set_tile_id((170 + self.sprite_offset / 16) * 4);
+
+                if (entity.position.y - player.entity.position.y).abs() < 50.into() {
+                    self.state = EmuState::Charging;
+
+                    let speed = Number::new(2)
+                        * (entity.position.x - player.entity.position.x)
+                            .to_raw()
+                            .signum();
+                    entity.velocity.x = speed;
+
+                    if speed > 0.into() {
+                        entity.sprite.set_hflip(true);
+                    } else if speed < 0.into() {
+                        entity.sprite.set_hflip(false);
+                    } else {
+                        self.state = EmuState::Idle;
+                    }
+                }
+            }
+            EmuState::Charging => {
+                self.sprite_offset += 1;
+
+                if self.sprite_offset >= 4 * 2 {
+                    self.sprite_offset = 0;
+                }
+
+                entity
+                    .sprite
+                    .set_tile_id((173 + self.sprite_offset / 2) * 4);
+
+                let gravity: Number = 1.into();
+                let gravity = gravity / 16;
+                entity.velocity.y += gravity;
+
+                let direction = entity.velocity.x.to_raw().signum();
+
+                let distance_travelled = entity.update_position(level);
+
+                if distance_travelled.x < 0.into() {
+                    entity.sprite.set_hflip(false);
+                } else if distance_travelled.x > 0.into() {
+                    entity.sprite.set_hflip(true);
+                } else {
+                    self.state = EmuState::Knockback;
+                    entity.velocity = (-direction, 1).into();
+                }
+            }
+            EmuState::Knockback => {
+                let gravity: Number = 1.into();
+                let gravity = gravity / 16;
+                entity.velocity.y += gravity;
+
+                let distance_travelled = entity.update_position(level);
+
+                if distance_travelled.y == 0.into() {
+                    entity.velocity.x = 0.into();
+                    self.state = EmuState::Idle;
+                }
+            }
+        }
+
+        instruction
+    }
+}
+
 enum UpdateInstruction {
     None,
     HealBossAndRemove,
@@ -1137,6 +1249,7 @@ impl EnemyData {
             EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
             EnemyData::Bat(_) => Rect::new((0u16, 0u16).into(), (12u16, 4u16).into()),
             EnemyData::MiniFlame(_) => Rect::new((0u16, 0u16).into(), (12u16, 12u16).into()),
+            EnemyData::Emu(_) => Rect::new((1u16, 4u16).into(), (7u16, 14u16).into()),
         }
     }
 
@@ -1145,6 +1258,7 @@ impl EnemyData {
             EnemyData::Slime(_) => 29,
             EnemyData::Bat(_) => 78,
             EnemyData::MiniFlame(_) => 137,
+            EnemyData::Emu(_) => 170,
         }
     }
 
@@ -1159,6 +1273,7 @@ impl EnemyData {
             EnemyData::Slime(data) => data.update(entity, player, level, sfx),
             EnemyData::Bat(data) => data.update(entity, player, level, sfx),
             EnemyData::MiniFlame(data) => data.update(entity, player, level, sfx),
+            EnemyData::Emu(data) => data.update(entity, player, level, sfx),
         }
     }
 }
