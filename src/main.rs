@@ -1763,6 +1763,7 @@ struct Game<'a> {
     level: Level,
     offset: Vector2D<Number>,
     shake_time: u16,
+    sunrise_timer: u16,
 
     enemies: Arena<Enemy<'a>>,
     particles: Arena<Particle<'a>>,
@@ -1941,7 +1942,6 @@ impl<'a> Game<'a> {
                 UpdateInstruction::Remove => remove.push(idx),
                 UpdateInstruction::HealBossAndRemove => {
                     sfx.sunrise();
-                    Game::start_sunrise(self.background_distributor);
                     let location = match &self.boss {
                         BossState::Active(b) => b.entity.position,
                         _ => unreachable!(),
@@ -1976,6 +1976,13 @@ impl<'a> Game<'a> {
 
         for i in remove {
             self.particles.remove(i);
+        }
+
+        if let BossState::Following(_) = self.boss {
+            Game::update_sunrise(self.background_distributor, self.sunrise_timer);
+            if self.sunrise_timer < 120 {
+                self.sunrise_timer += 1;
+            }
         }
 
         self.frame_count += 1;
@@ -2031,10 +2038,14 @@ impl<'a> Game<'a> {
         }
     }
 
-    fn start_sunrise(background_distributor: &'a mut BackgroundDistributor) {
+    fn update_sunrise(background_distributor: &'a mut BackgroundDistributor, time: u16) {
         let mut modified_palette = background::background.palettes[0].clone();
-        modified_palette.update_colour(0, 17982);
-        modified_palette.update_colour(1, 22427);
+
+        let a = modified_palette.get_colour(0);
+        let b = modified_palette.get_colour(1);
+
+        modified_palette.update_colour(0, interpolate_colour(a, 17982, time, 120));
+        modified_palette.update_colour(1, interpolate_colour(b, 22427, time, 120));
 
         let modified_palettes = [modified_palette];
 
@@ -2068,6 +2079,7 @@ impl<'a> Game<'a> {
             particles: Arena::with_capacity(30),
             boss: BossState::NotSpawned,
             move_state: MoveState::Advancing,
+            sunrise_timer: 0,
 
             background_distributor,
         }
@@ -2153,4 +2165,25 @@ fn ping_pong(i: u16, n: u16) -> u16 {
     } else {
         i
     }
+}
+
+fn interpolate_colour(initial: u16, destination: u16, time_so_far: u16, total_time: u16) -> u16 {
+    const MASK: u16 = 0b11111;
+    fn to_components(c: u16) -> [u16; 3] {
+        [c & MASK, (c >> 5) & MASK, (c >> 10) & MASK]
+    }
+
+    let initial_rgb = to_components(initial);
+    let destination_rgb = to_components(destination);
+    let mut colour = 0;
+
+    for (i, c) in initial_rgb
+        .iter()
+        .zip(destination_rgb)
+        .map(|(a, b)| (b - a) * time_so_far / total_time + a)
+        .enumerate()
+    {
+        colour |= (c & MASK) << (i * 5);
+    }
+    colour
 }
