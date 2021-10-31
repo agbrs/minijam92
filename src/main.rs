@@ -1569,7 +1569,7 @@ enum BossActiveState {
     Damaged(u8),
     MovingToTarget,
     WaitingUntilExplosion(u8),
-    WaitingUntilDamaged,
+    WaitingUntilDamaged(u16),
     WaitUntilKilled,
 }
 
@@ -1580,6 +1580,7 @@ struct Boss<'a> {
     state: BossActiveState,
     timer: u32,
     screen_coords: Vector2D<Number>,
+    shake_magnitude: Number,
 }
 
 enum BossInstruction {
@@ -1605,6 +1606,7 @@ impl<'a> Boss<'a> {
             state: BossActiveState::Damaged(60),
             timer: 0,
             screen_coords,
+            shake_magnitude: 0.into(),
         }
     }
     fn update(
@@ -1635,17 +1637,22 @@ impl<'a> Boss<'a> {
             BossActiveState::WaitingUntilExplosion(time) => {
                 *time -= 1;
                 if *time == 0 {
-                    enemies.clear();
                     if self.health == 0 {
+                        enemies.clear();
                         instruction = BossInstruction::Dead;
                         self.state = BossActiveState::WaitUntilKilled;
                     } else {
                         self.explode(enemies, object_controller);
-                        self.state = BossActiveState::WaitingUntilDamaged
+                        self.state = BossActiveState::WaitingUntilDamaged(60 * 5);
                     }
                 }
             }
-            BossActiveState::WaitingUntilDamaged => {
+            BossActiveState::WaitingUntilDamaged(time) => {
+                *time -= 1;
+                if *time == 0 {
+                    self.explode(enemies, object_controller);
+                    self.state = BossActiveState::WaitingUntilDamaged(60 * 5);
+                }
                 if let Some(hurt) = &player.hurtbox {
                     if hurt.touches(self.entity.collider()) {
                         self.health -= 1;
@@ -1659,8 +1666,22 @@ impl<'a> Boss<'a> {
             BossActiveState::Damaged(_) => 6,
             BossActiveState::MovingToTarget => 4,
             BossActiveState::WaitingUntilExplosion(_) => 3,
-            BossActiveState::WaitingUntilDamaged => 8,
+            BossActiveState::WaitingUntilDamaged(_) => 8,
             BossActiveState::WaitUntilKilled => 12,
+        };
+
+        self.shake_magnitude = match self.state {
+            BossActiveState::Damaged(_) => 1.into(),
+            BossActiveState::MovingToTarget => 0.into(),
+            BossActiveState::WaitingUntilExplosion(_) => 5.into(),
+            BossActiveState::WaitingUntilDamaged(time) => {
+                if time < 60 {
+                    5.into()
+                } else {
+                    0.into()
+                }
+            }
+            BossActiveState::WaitUntilKilled => 3.into(),
         };
         self.timer += 1;
         let frame = (self.timer / animation_rate) % 12;
@@ -1670,7 +1691,20 @@ impl<'a> Boss<'a> {
         instruction
     }
     fn commit(&mut self, offset: Vector2D<Number>) {
-        self.entity.commit_with_size(offset, (32, 32).into());
+        let shake = if self.shake_magnitude != 0.into() {
+            (
+                Number::from_raw(get_random()).rem_euclid(self.shake_magnitude)
+                    - self.shake_magnitude / 2,
+                Number::from_raw(get_random()).rem_euclid(self.shake_magnitude)
+                    - self.shake_magnitude / 2,
+            )
+                .into()
+        } else {
+            (0, 0).into()
+        };
+
+        self.entity
+            .commit_with_size(offset + shake, (32, 32).into());
     }
     fn explode(&self, enemies: &mut Arena<Enemy<'a>>, object_controller: &'a ObjectControl) {
         for _ in 0..(6 - self.health) {
