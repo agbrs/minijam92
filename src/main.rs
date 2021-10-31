@@ -1974,9 +1974,12 @@ impl<'a> Game<'a> {
 
     fn load_enemies(&mut self, object_controller: &'a ObjectControl) {
         if self.slime_load < self.level.slime_spawns.len() {
-            for (idx, slime_spawn) in self.level.slime_spawns[self.slime_load..]
+            for (idx, slime_spawn) in self
+                .level
+                .slime_spawns
                 .iter()
                 .enumerate()
+                .skip(self.slime_load)
             {
                 if slime_spawn.0 as i32 > self.offset.x.floor() + 300 {
                     break;
@@ -1988,7 +1991,7 @@ impl<'a> Game<'a> {
             }
         }
         if self.bat_load < self.level.bat_spawns.len() {
-            for (idx, bat_spawn) in self.level.bat_spawns[self.bat_load..].iter().enumerate() {
+            for (idx, bat_spawn) in self.level.bat_spawns.iter().enumerate().skip(self.bat_load) {
                 if bat_spawn.0 as i32 > self.offset.x.floor() + 300 {
                     break;
                 }
@@ -1999,7 +2002,7 @@ impl<'a> Game<'a> {
             }
         }
         if self.emu_load < self.level.emu_spawns.len() {
-            for (idx, emu_spawn) in self.level.emu_spawns[self.emu_load..].iter().enumerate() {
+            for (idx, emu_spawn) in self.level.emu_spawns.iter().enumerate().skip(self.emu_load) {
                 if emu_spawn.0 as i32 > self.offset.x.floor() + 300 {
                     break;
                 }
