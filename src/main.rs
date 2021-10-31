@@ -1124,6 +1124,7 @@ impl MiniFlameData {
 
 enum UpdateInstruction {
     None,
+    HealBossAndRemove,
     HealPlayerAndRemove,
     Remove,
     DamagePlayer,
@@ -1190,6 +1191,7 @@ impl<'a> Enemy<'a> {
 enum ParticleData {
     Dust(u16),
     Health(u16),
+    BossHealer(u16, Vector2D<Number>),
 }
 
 impl ParticleData {
@@ -1201,10 +1203,15 @@ impl ParticleData {
         Self::Health(0)
     }
 
+    fn new_boss_healer(target: Vector2D<Number>) -> Self {
+        Self::BossHealer(0, target)
+    }
+
     fn tile_id(&self) -> u16 {
         match self {
             ParticleData::Dust(_) => 70,
             ParticleData::Health(_) => 88,
+            ParticleData::BossHealer(_, _) => 88,
         }
     }
 
@@ -1249,6 +1256,29 @@ impl ParticleData {
 
                 *frame += 1;
 
+                UpdateInstruction::None
+            }
+            ParticleData::BossHealer(frame, target) => {
+                entity.sprite.set_tile_id((88 + (*frame / 3) % 8) * 4);
+
+                if *frame < 8 * 3 * 3 {
+                    entity.velocity.y = Number::new(-1) / 2;
+                } else if *frame < 8 * 3 * 6 {
+                    entity.velocity = (0, 0).into();
+                } else {
+                    let speed = Number::new(4);
+                    let target_velocity = *target - entity.position;
+
+                    if target_velocity.manhattan_distance() < 5.into() {
+                        return UpdateInstruction::HealBossAndRemove;
+                    }
+
+                    entity.velocity = target_velocity.normalise() * speed;
+                }
+
+                entity.update_position_without_collision();
+
+                *frame += 1;
                 UpdateInstruction::None
             }
         }
@@ -1385,6 +1415,7 @@ enum BossActiveState {
     MovingToTarget,
     WaitingUntilExplosion(u8),
     WaitingUntilDamaged,
+    WaitUntilKilled,
 }
 
 struct Boss<'a> {
@@ -1436,6 +1467,7 @@ impl<'a> Boss<'a> {
                     self.state = BossActiveState::MovingToTarget;
                     if self.health == 0 {
                         instruction = BossInstruction::Dead;
+                        self.state = BossActiveState::WaitUntilKilled;
                     }
                 }
             }
@@ -1465,12 +1497,14 @@ impl<'a> Boss<'a> {
                     }
                 }
             }
+            BossActiveState::WaitUntilKilled => {}
         }
         let animation_rate = match self.state {
             BossActiveState::Damaged(_) => 6,
             BossActiveState::MovingToTarget => 4,
             BossActiveState::WaitingUntilExplosion(_) => 3,
             BossActiveState::WaitingUntilDamaged => 8,
+            BossActiveState::WaitUntilKilled => 12,
         };
         self.timer += 1;
         let frame = (self.timer / animation_rate) % 12;
@@ -1583,14 +1617,18 @@ impl<'a> Game<'a> {
             .update(&mut self.enemies, object_controller, &self.player)
         {
             BossInstruction::Dead => {
-                sfx.sunrise();
-                self.start_sunrise();
-                let location = match &self.boss {
-                    BossState::Active(b) => b.entity.position,
+                let boss = match &self.boss {
+                    BossState::Active(b) => b,
                     _ => unreachable!(),
                 };
-                self.boss = BossState::Following(FollowingBoss::new(object_controller, location));
-                self.move_state = MoveState::FollowingPlayer;
+                let new_particle = Particle::new(
+                    object_controller,
+                    ParticleData::new_boss_healer(boss.entity.position),
+                    self.player.entity.position,
+                );
+                self.particles.insert(new_particle);
+                sfx.stop_music();
+                self.player.sword = SwordState::Swordless;
             }
             BossInstruction::None => {}
         }
@@ -1646,6 +1684,7 @@ impl<'a> Game<'a> {
                     sfx.player_heal();
                     remove.push(idx);
                 }
+                UpdateInstruction::HealBossAndRemove => {}
                 UpdateInstruction::DamagePlayer => {
                     let (alive, damaged) = self.player.damage();
                     if !alive {
@@ -1692,6 +1731,18 @@ impl<'a> Game<'a> {
         for (idx, particle) in self.particles.iter_mut() {
             match particle.update(&self.player, &self.level) {
                 UpdateInstruction::Remove => remove.push(idx),
+                UpdateInstruction::HealBossAndRemove => {
+                    sfx.sunrise();
+                    Game::start_sunrise(self.background_distributor);
+                    let location = match &self.boss {
+                        BossState::Active(b) => b.entity.position,
+                        _ => unreachable!(),
+                    };
+                    self.boss =
+                        BossState::Following(FollowingBoss::new(object_controller, location));
+                    self.move_state = MoveState::FollowingPlayer;
+                    remove.push(idx);
+                }
                 UpdateInstruction::HealPlayerAndRemove => {
                     self.player.heal();
                     sfx.player_heal();
@@ -1751,15 +1802,14 @@ impl<'a> Game<'a> {
         }
     }
 
-    fn start_sunrise(&mut self) {
+    fn start_sunrise(background_distributor: &'a mut BackgroundDistributor) {
         let mut modified_palette = background::background.palettes[0].clone();
         modified_palette.update_colour(0, 17982);
         modified_palette.update_colour(1, 22427);
 
         let modified_palettes = [modified_palette];
 
-        self.background_distributor
-            .set_background_palettes(&modified_palettes);
+        background_distributor.set_background_palettes(&modified_palettes);
     }
 
     fn new(
