@@ -13,3 +13,7 @@ cp screenshot.png target/final-zip/the-purple-night
 
 rm -f target/thepurplenight.zip
 (cd target/final-zip && zip -r ../thepurplenight.zip the-purple-night)
+
+cp -r html target/html
+cp target/final-zip/the-purple-night/thepurplenight.gba target/html/thepurplenight.gba
+(cd target/html && zip ../html.zip ./*)
