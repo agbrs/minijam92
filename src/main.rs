@@ -751,7 +751,7 @@ impl<'a> Player<'a> {
             self.sword = sword;
         }
 
-        self.damage_cooldown = 120;
+        self.damage_cooldown = 30;
     }
 
     fn commit(&mut self, offset: Vector2D<Number>) {
