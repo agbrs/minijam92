@@ -1019,7 +1019,7 @@ impl SlimeData {
 
 enum MiniFlameState {
     Idle(u16),
-    Chasing,
+    Chasing(u16),
     Dead,
 }
 
@@ -1031,7 +1031,7 @@ struct MiniFlameData {
 impl MiniFlameData {
     fn new() -> Self {
         Self {
-            state: MiniFlameState::Chasing,
+            state: MiniFlameState::Chasing(90),
             sprite_offset: 0,
         }
     }
@@ -1064,7 +1064,7 @@ impl MiniFlameData {
                         self.state = MiniFlameState::Idle(30);
                     } else {
                         sfx.flame_charge();
-                        self.state = MiniFlameState::Chasing;
+                        self.state = MiniFlameState::Chasing(90);
                         entity.velocity = resulting_direction.normalise() * Number::new(2);
                     }
                 } else {
@@ -1093,8 +1093,14 @@ impl MiniFlameData {
                     instruction = UpdateInstruction::DamagePlayer;
                 }
             }
-            MiniFlameState::Chasing => {
+            MiniFlameState::Chasing(frame) => {
                 entity.velocity *= Number::new(63) / Number::new(64);
+
+                if *frame == 0 {
+                    self.state = MiniFlameState::Idle(30);
+                } else {
+                    *frame -= 1;
+                }
 
                 if should_die {
                     self.sprite_offset = 0;
