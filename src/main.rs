@@ -284,6 +284,7 @@ enum SwordState {
     LongSword,
     ShortSword,
     Dagger,
+    Swordless,
 }
 
 impl SwordState {
@@ -292,6 +293,7 @@ impl SwordState {
             SwordState::LongSword => Number::new(4) / 16,
             SwordState::ShortSword => Number::new(5) / 16,
             SwordState::Dagger => Number::new(6) / 16,
+            SwordState::Swordless => Number::new(6) / 16,
         }
     }
     fn jump_impulse(self) -> Number {
@@ -299,6 +301,7 @@ impl SwordState {
             SwordState::LongSword => Number::new(32) / 16,
             SwordState::ShortSword => Number::new(35) / 16,
             SwordState::Dagger => Number::new(36) / 16,
+            SwordState::Swordless => Number::new(36) / 16,
         }
     }
     fn air_move_force(self) -> Number {
@@ -306,6 +309,7 @@ impl SwordState {
             SwordState::LongSword => Number::new(4) / 256,
             SwordState::ShortSword => Number::new(5) / 256,
             SwordState::Dagger => Number::new(6) / 256,
+            SwordState::Swordless => Number::new(6) / 256,
         }
     }
     fn idle_animation(self, counter: &mut u16) -> u16 {
@@ -316,6 +320,7 @@ impl SwordState {
             SwordState::LongSword => (0 + *counter / 8) * 4,
             SwordState::ShortSword => (41 + *counter / 8) * 4,
             SwordState::Dagger => (96 + *counter / 8) * 4,
+            SwordState::Swordless => (154 + *counter / 8) * 4,
         }
     }
     fn jump_offset(self) -> u16 {
@@ -323,6 +328,7 @@ impl SwordState {
             SwordState::LongSword => 10,
             SwordState::ShortSword => 51,
             SwordState::Dagger => 106,
+            SwordState::Swordless => 164,
         }
     }
     fn walk_animation(self, counter: &mut u16) -> u16 {
@@ -333,6 +339,7 @@ impl SwordState {
             SwordState::LongSword => (4 + *counter / 4) * 4,
             SwordState::ShortSword => (45 + *counter / 4) * 4,
             SwordState::Dagger => (100 + *counter / 4) * 4,
+            SwordState::Swordless => (158 + *counter / 4) * 4,
         }
     }
     fn attack_duration(self) -> u16 {
@@ -340,6 +347,7 @@ impl SwordState {
             SwordState::LongSword => 60,
             SwordState::ShortSword => 40,
             SwordState::Dagger => 20,
+            SwordState::Swordless => 0,
         }
     }
     fn jump_attack_duration(self) -> u16 {
@@ -347,6 +355,7 @@ impl SwordState {
             SwordState::LongSword => 34,
             SwordState::ShortSword => 28,
             SwordState::Dagger => 20,
+            SwordState::Swordless => 0,
         }
     }
     fn attack_frame(self, timer: u16) -> u16 {
@@ -354,27 +363,21 @@ impl SwordState {
             SwordState::LongSword => (self.attack_duration() - timer) / 8,
             SwordState::ShortSword => (self.attack_duration() - timer) / 8,
             SwordState::Dagger => (self.attack_duration() - timer) / 8,
+            SwordState::Swordless => (self.attack_duration() - timer) / 8,
         }
     }
     fn jump_attack_frame(self, timer: u16) -> u16 {
-        match self {
-            SwordState::LongSword => (self.jump_attack_duration() - timer) / 8,
-            SwordState::ShortSword => (self.jump_attack_duration() - timer) / 8,
-            SwordState::Dagger => (self.jump_attack_duration() - timer) / 8,
-        }
+        (self.jump_attack_duration() - timer) / 8
     }
     fn hold_frame(self) -> u16 {
-        match self {
-            SwordState::LongSword => 7,
-            SwordState::ShortSword => 7,
-            SwordState::Dagger => 7,
-        }
+        7
     }
     fn jump_attack_hold_frame(self) -> u16 {
         match self {
             SwordState::LongSword => 13,
             SwordState::ShortSword => 54,
             SwordState::Dagger => 109,
+            SwordState::Swordless => 0,
         }
     }
 
@@ -383,6 +386,7 @@ impl SwordState {
             SwordState::LongSword => 20,
             SwordState::ShortSword => 10,
             SwordState::Dagger => 1,
+            SwordState::Swordless => 0,
         }
     }
     fn to_sprite_id(self, frame: u16) -> u16 {
@@ -390,6 +394,7 @@ impl SwordState {
             SwordState::LongSword => (16 + frame) * 4,
             SwordState::ShortSword => (57 + frame) * 4,
             SwordState::Dagger => (112 + frame) * 4,
+            SwordState::Swordless => 0,
         }
     }
     fn to_jump_sprite_id(self, frame: u16) -> u16 {
@@ -400,6 +405,7 @@ impl SwordState {
                 SwordState::LongSword => (24 + frame) * 4,
                 SwordState::ShortSword => (65 + frame) * 4,
                 SwordState::Dagger => (120 + frame) * 4,
+                SwordState::Swordless => 0,
             }
         }
     }
@@ -408,6 +414,7 @@ impl SwordState {
             SwordState::LongSword => long_sword_fudge(frame),
             SwordState::ShortSword => short_sword_fudge(frame),
             SwordState::Dagger => 0,
+            SwordState::Swordless => 0,
         }
     }
     // origin at top left pre fudge boxes
@@ -416,6 +423,7 @@ impl SwordState {
             SwordState::LongSword => long_sword_hurtbox(frame),
             SwordState::ShortSword => short_sword_hurtbox(frame),
             SwordState::Dagger => dagger_hurtbox(frame),
+            SwordState::Swordless => None,
         }
     }
     fn air_attack_hurtbox(self, _frame: u16) -> Option<Rect<Number>> {
@@ -563,7 +571,8 @@ impl<'a> Player<'a> {
                                 .set_tile_id(self.sword.idle_animation(&mut self.sprite_offset));
                         }
 
-                        if buttons.is_just_pressed(Button::B) {
+                        if buttons.is_just_pressed(Button::B) && self.sword != SwordState::Swordless
+                        {
                             self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
                             sfx.sword();
                         } else if buttons.is_just_pressed(Button::A) {
@@ -627,7 +636,9 @@ impl<'a> Player<'a> {
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
                         self.entity.velocity.x += self.sword.air_move_force() * x as i32;
 
-                        if buttons.is_just_pressed(Button::B) && self.sword != SwordState::LongSword
+                        if buttons.is_just_pressed(Button::B)
+                            && self.sword != SwordState::LongSword
+                            && self.sword != SwordState::Swordless
                         {
                             sfx.sword();
                             self.attack_timer =
@@ -710,6 +721,7 @@ impl<'a> Player<'a> {
             SwordState::LongSword => Some(SwordState::ShortSword),
             SwordState::ShortSword => Some(SwordState::Dagger),
             SwordState::Dagger => None,
+            SwordState::Swordless => Some(SwordState::Swordless),
         };
         if let Some(sword) = new_sword {
             self.sword = sword;
@@ -724,6 +736,7 @@ impl<'a> Player<'a> {
             SwordState::LongSword => None,
             SwordState::ShortSword => Some(SwordState::LongSword),
             SwordState::Dagger => Some(SwordState::ShortSword),
+            SwordState::Swordless => Some(SwordState::Swordless),
         };
 
         if let Some(sword) = new_sword {
