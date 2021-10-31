@@ -49,7 +49,7 @@ impl Level {
             Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
             0,
         ));
-        backdrop.set_priority(Priority::P0);
+        backdrop.set_priority(Priority::P2);
 
         foreground.set_position(Vector2D::new(0, 0));
         foreground.set_map(agb::display::background::Map::new(
@@ -57,7 +57,7 @@ impl Level {
             Vector2D::new(tilemap::WIDTH, tilemap::HEIGHT),
             0,
         ));
-        foreground.set_priority(Priority::P2);
+        foreground.set_priority(Priority::P0);
 
         clouds.set_position(Vector2D::new(0, -5));
         clouds.set_map(agb::display::background::Map::new(
@@ -309,7 +309,7 @@ impl SwordState {
             SwordState::LongSword => Number::new(32) / 16,
             SwordState::ShortSword => Number::new(35) / 16,
             SwordState::Dagger => Number::new(36) / 16,
-            SwordState::Swordless => Number::new(36) / 16,
+            SwordState::Swordless => Number::new(42) / 16,
         }
     }
     fn air_move_force(self) -> Number {
@@ -528,7 +528,7 @@ impl<'a> Player<'a> {
             .set_sprite_size(agb::display::object::Size::S16x16);
         entity.sprite.set_tile_id(0);
         entity.sprite.show();
-        entity.position = (58, 26).into();
+        entity.position = (144, 0).into();
         entity.sprite.commit();
 
         Player {
@@ -1598,7 +1598,7 @@ impl<'a> Boss<'a> {
             .sprite
             .set_sprite_size(agb::display::object::Size::S32x32);
         entity.sprite.set_palette(1);
-        entity.position = screen_coords + (140, 100).into();
+        entity.position = screen_coords + (144, 136).into();
         Self {
             entity,
             health: 5,
@@ -1768,7 +1768,7 @@ enum MoveState {
 impl<'a> Game<'a> {
     fn has_just_reached_end(&self) -> bool {
         match self.boss {
-            BossState::NotSpawned => self.offset.x.floor() + 240 >= tilemap::WIDTH as i32 * 8,
+            BossState::NotSpawned => self.offset.x.floor() + 248 >= tilemap::WIDTH as i32 * 8,
             _ => false,
         }
     }
@@ -1786,20 +1786,20 @@ impl<'a> Game<'a> {
 
                 if self.has_just_reached_end() {
                     sfx.boss();
-                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
                     self.move_state = MoveState::PinnedAtEnd;
                     self.boss = BossState::Active(Boss::new(object_controller, self.offset))
                 }
             }
             MoveState::PinnedAtEnd => {
-                self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+                self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
             }
             MoveState::FollowingPlayer => {
                 let difference = self.player.entity.position.x - (self.offset.x + WIDTH / 2);
 
                 self.offset.x += difference / 8;
-                if self.offset.x > (tilemap::WIDTH as i32 * 8 - 240).into() {
-                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 240).into();
+                if self.offset.x > (tilemap::WIDTH as i32 * 8 - 248).into() {
+                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
                 }
             }
         }

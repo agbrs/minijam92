@@ -9,7 +9,7 @@ use quote::quote;
 fn main() {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable must be specified");
 
-    let playground_filename = "map/playground.tmx";
+    let playground_filename = "map/map.tmx";
     println!("cargo:rerun-if-changed={}", playground_filename);
 
     let map = tiled::parse_file(Path::new(playground_filename)).unwrap();
