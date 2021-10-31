@@ -1477,6 +1477,7 @@ enum GameStatus {
     Continue,
     Lost,
     Won,
+    RespawnAtBoss,
 }
 
 enum BossState<'a> {
@@ -1969,7 +1970,14 @@ impl<'a> Game<'a> {
         }
 
         self.frame_count += 1;
-        state
+        if let GameStatus::Lost = state {
+            match self.boss {
+                BossState::Active(_) => GameStatus::RespawnAtBoss,
+                _ => GameStatus::Lost,
+            }
+        } else {
+            state
+        }
     }
 
     fn load_enemies(&mut self, object_controller: &'a ObjectControl) {
@@ -2028,13 +2036,20 @@ impl<'a> Game<'a> {
         object: &'a ObjectControl,
         level: Level,
         background_distributor: &'a mut BackgroundDistributor,
+        start_at_boss: bool,
     ) -> Self {
+        let mut player = Player::new(object);
+        let mut offset = (8, 8).into();
+        if start_at_boss {
+            player.entity.position = (133 * 8, 10 * 8).into();
+            offset = (976, 8).into();
+        }
         Self {
-            player: Player::new(object),
+            player,
             input: ButtonController::new(),
             frame_count: 0,
             level,
-            offset: (8, 8).into(),
+            offset,
             shake_time: 0,
 
             enemies: Arena::with_capacity(100),
@@ -2051,34 +2066,18 @@ impl<'a> Game<'a> {
 }
 
 fn game_with_level(gba: &mut agb::Gba) {
-    let mut object = gba.display.object.get();
-    object.set_sprite_palettes(&[
-        objects::objects.palettes[0].clone(),
-        objects::boss.palettes[0].clone(),
-    ]);
-    object.set_sprite_tilemap(objects::objects.tiles);
-    object.set_sprite_tilemap_at_idx(8192 - objects::boss.tiles.len(), objects::boss.tiles);
-
-    let mut background = gba.display.video.tiled0();
-
-    background.set_background_palettes(background::background.palettes);
-    background.set_background_tilemap(0, background::background.tiles);
-
-    object.enable();
-    let object = object;
+    {
+        let object = gba.display.object.get();
+        object.set_sprite_palettes(&[
+            objects::objects.palettes[0].clone(),
+            objects::boss.palettes[0].clone(),
+        ]);
+        object.set_sprite_tilemap(objects::objects.tiles);
+        object.set_sprite_tilemap_at_idx(8192 - objects::boss.tiles.len(), objects::boss.tiles);
+    }
 
     let vblank = agb::interrupt::VBlank::get();
     vblank.wait_for_vblank();
-
-    let mut game = Game::new(
-        &object,
-        Level::load_level(
-            background.get_regular().unwrap(),
-            background.get_regular().unwrap(),
-            background.get_regular().unwrap(),
-        ),
-        &mut background,
-    );
 
     let mut mixer = gba.mixer.mixer();
     mixer.enable();
@@ -2086,17 +2085,41 @@ fn game_with_level(gba: &mut agb::Gba) {
     let mut sfx = sfx::Sfx::new(&mut mixer);
     sfx.purple_night();
 
-    loop {
-        vblank.wait_for_vblank();
-        sfx.vblank();
-        match game.advance_frame(&object, &mut sfx) {
-            GameStatus::Continue => {}
-            GameStatus::Lost | GameStatus::Won => {
-                break;
-            }
-        }
+    let mut start_at_boss = false;
 
-        get_random(); // advance RNG to make it less predictable between runs
+    loop {
+        let mut background = gba.display.video.tiled0();
+        background.set_background_palettes(background::background.palettes);
+        background.set_background_tilemap(0, background::background.tiles);
+        let mut object = gba.display.object.get();
+        object.enable();
+
+        let mut game = Game::new(
+            &object,
+            Level::load_level(
+                background.get_regular().unwrap(),
+                background.get_regular().unwrap(),
+                background.get_regular().unwrap(),
+            ),
+            &mut background,
+            start_at_boss,
+        );
+
+        start_at_boss = loop {
+            vblank.wait_for_vblank();
+            sfx.vblank();
+            match game.advance_frame(&object, &mut sfx) {
+                GameStatus::Continue => {}
+                GameStatus::Lost | GameStatus::Won => {
+                    break false;
+                }
+                GameStatus::RespawnAtBoss => {
+                    break true;
+                }
+            }
+
+            get_random(); // advance RNG to make it less predictable between runs
+        }
     }
 }
 
