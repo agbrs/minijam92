@@ -19,6 +19,7 @@ const BURNING_FLAME: &[u8] = agb::include_wav!("sfx/Burning.wav");
 
 const EMU_CRASH: &[u8] = agb::include_wav!("sfx/EmuCrash.wav");
 const EMU_STEP: &[u8] = agb::include_wav!("sfx/EmuStep.wav");
+const EMU_DEATH: &[u8] = agb::include_wav!("sfx/EmuDeath.wav");
 
 const PURPLE_NIGHT: &[u8] = agb::include_wav!("sfx/01 - The Purple Night (Main Loop).wav");
 const PURPLE_NIGHT_INTRO: &[u8] = agb::include_wav!("sfx/01 - The Purple Night (Intro).wav");
@@ -147,5 +148,9 @@ impl<'a> Sfx<'a> {
 
     pub fn emu_crash(&mut self) {
         self.mixer.play_sound(SoundChannel::new(EMU_CRASH));
+    }
+
+    pub fn emu_death(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(EMU_DEATH));
     }
 }

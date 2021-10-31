@@ -1262,6 +1262,10 @@ impl EmuData {
                 }
             }
             EmuState::Dead => {
+                if self.sprite_offset == 0 {
+                    sfx.emu_death();
+                }
+
                 if self.sprite_offset >= 8 * 4 {
                     instruction = UpdateInstruction::Remove;
                 }
