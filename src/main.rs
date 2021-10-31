@@ -1134,7 +1134,7 @@ impl MiniFlameData {
 
 enum EmuState {
     Idle,
-    Charging,
+    Charging(Tri),
     Knockback,
 }
 
@@ -1180,24 +1180,25 @@ impl EmuData {
                     .set_tile_id((170 + self.sprite_offset / 16) * 4);
 
                 if (entity.position.y - player.entity.position.y).abs() < 10.into() {
-                    self.state = EmuState::Charging;
-
-                    let speed = Number::new(1)
+                    let velocity = Number::new(1)
                         * (player.entity.position.x - entity.position.x)
                             .to_raw()
                             .signum();
-                    entity.velocity.x = speed;
+                    entity.velocity.x = velocity;
 
-                    if speed > 0.into() {
+                    if velocity > 0.into() {
                         entity.sprite.set_hflip(true);
-                    } else if speed < 0.into() {
+                        self.state = EmuState::Charging(Tri::Positive);
+                    } else if velocity < 0.into() {
+                        self.state = EmuState::Charging(Tri::Negative);
                         entity.sprite.set_hflip(false);
                     } else {
                         self.state = EmuState::Idle;
                     }
                 }
             }
-            EmuState::Charging => {
+            EmuState::Charging(direction) => {
+                let direction = Number::new(*direction as i32);
                 self.sprite_offset += 1;
 
                 if self.sprite_offset >= 4 * 2 {
@@ -1212,17 +1213,11 @@ impl EmuData {
                 let gravity = gravity / 16;
                 entity.velocity.y += gravity;
 
-                let direction = entity.velocity.x.to_raw().signum();
-
                 let distance_travelled = entity.update_position(level);
 
-                if distance_travelled.x < 0.into() {
-                    entity.sprite.set_hflip(false);
-                } else if distance_travelled.x > 0.into() {
-                    entity.sprite.set_hflip(true);
-                } else {
+                if distance_travelled.x == 0.into() {
                     self.state = EmuState::Knockback;
-                    entity.velocity = (-direction, 1).into();
+                    entity.velocity = (-direction / 2, Number::new(-1)).into();
                 }
             }
             EmuState::Knockback => {
@@ -1230,9 +1225,11 @@ impl EmuData {
                 let gravity = gravity / 16;
                 entity.velocity.y += gravity;
 
-                let distance_travelled = entity.update_position(level);
+                entity.update_position(level);
+                let (_, is_collision) =
+                    entity.collision_in_direction((0, 1).into(), gravity, |x| level.collides(x));
 
-                if distance_travelled.y == 0.into() {
+                if is_collision {
                     entity.velocity.x = 0.into();
                     self.state = EmuState::Idle;
                 }
