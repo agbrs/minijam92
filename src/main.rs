@@ -1812,11 +1812,16 @@ impl<'a> Game<'a> {
                 self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
             }
             MoveState::FollowingPlayer => {
-                let difference = self.player.entity.position.x - (self.offset.x + WIDTH / 2);
+                Game::update_sunrise(self.background_distributor, self.sunrise_timer);
+                if self.sunrise_timer < 120 {
+                    self.sunrise_timer += 1;
+                } else {
+                    let difference = self.player.entity.position.x - (self.offset.x + WIDTH / 2);
 
-                self.offset.x += difference / 8;
-                if self.offset.x > (tilemap::WIDTH as i32 * 8 - 248).into() {
-                    self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
+                    self.offset.x += difference / 8;
+                    if self.offset.x > (tilemap::WIDTH as i32 * 8 - 248).into() {
+                        self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
+                    }
                 }
             }
         }
@@ -1976,13 +1981,6 @@ impl<'a> Game<'a> {
 
         for i in remove {
             self.particles.remove(i);
-        }
-
-        if let BossState::Following(_) = self.boss {
-            Game::update_sunrise(self.background_distributor, self.sunrise_timer);
-            if self.sunrise_timer < 120 {
-                self.sunrise_timer += 1;
-            }
         }
 
         self.frame_count += 1;
