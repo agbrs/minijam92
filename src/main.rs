@@ -7,6 +7,8 @@ extern crate alloc;
 mod rng;
 mod sfx;
 
+use core::borrow::Borrow;
+
 use alloc::vec::Vec;
 
 use rng::get_random;
@@ -515,6 +517,7 @@ struct Player<'a> {
     sword: SwordState,
     fudge_factor: Vector2D<i32>,
     hurtbox: Option<Rect<Number>>,
+    controllable: bool,
 }
 
 impl<'a> Player<'a> {
@@ -541,6 +544,7 @@ impl<'a> Player<'a> {
             fudge_factor: (0, 0).into(),
             hurtbox: None,
             damage_cooldown: 0,
+            controllable: true,
         }
     }
 
@@ -552,7 +556,14 @@ impl<'a> Player<'a> {
     ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
 
-        let x = buttons.x_tri();
+        let x = if self.controllable {
+            buttons.x_tri()
+        } else {
+            Tri::Zero
+        };
+
+        let b_press = buttons.is_just_pressed(Button::B) && self.controllable;
+        let a_press = buttons.is_just_pressed(Button::A) && self.controllable;
 
         self.fudge_factor = (0, 0).into();
         let mut hurtbox = None;
@@ -579,11 +590,10 @@ impl<'a> Player<'a> {
                                 .set_tile_id(self.sword.idle_animation(&mut self.sprite_offset));
                         }
 
-                        if buttons.is_just_pressed(Button::B) && self.sword != SwordState::Swordless
-                        {
+                        if b_press && self.sword != SwordState::Swordless {
                             self.attack_timer = AttackTimer::Attack(self.sword.attack_duration());
                             sfx.sword();
-                        } else if buttons.is_just_pressed(Button::A) {
+                        } else if a_press {
                             self.entity.velocity.y -= self.sword.jump_impulse();
                             self.state = PlayerState::InAir;
                             self.sprite_offset = 0;
@@ -644,7 +654,7 @@ impl<'a> Player<'a> {
                         self.entity.sprite.set_hflip(self.facing == Tri::Negative);
                         self.entity.velocity.x += self.sword.air_move_force() * x as i32;
 
-                        if buttons.is_just_pressed(Button::B)
+                        if b_press
                             && self.sword != SwordState::LongSword
                             && self.sword != SwordState::Swordless
                         {
@@ -1528,7 +1538,9 @@ impl<'a> BossState<'a> {
 struct FollowingBoss<'a> {
     entity: Entity<'a>,
     following: bool,
+    to_hole: bool,
     timer: u32,
+    gone: bool,
 }
 
 impl<'a> FollowingBoss<'a> {
@@ -1545,13 +1557,26 @@ impl<'a> FollowingBoss<'a> {
             entity,
             following: true,
             timer: 0,
+            to_hole: false,
+            gone: false,
         }
     }
     fn update(&mut self, player: &Player) {
         let difference = player.entity.position - self.entity.position;
         self.timer += 1;
 
-        if self.timer < 120 {
+        if self.to_hole {
+            let target: Vector2D<Number> = (17 * 8, -3 * 8).into();
+            let difference = target - self.entity.position;
+            if difference.manhattan_distance() < 1.into() {
+                self.gone = true;
+            } else {
+                self.entity.velocity = difference.normalise() * 2;
+            }
+
+            let frame = (self.timer / 8) % 12;
+            self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
+        } else if self.timer < 120 {
             let frame = (self.timer / 20) % 12;
             self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
         } else if self.following {
@@ -1613,7 +1638,7 @@ impl<'a> Boss<'a> {
         entity.position = screen_coords + (144, 136).into();
         Self {
             entity,
-            health: 5,
+            health: 0,
             target_location: get_random().rem_euclid(5) as u8,
             state: BossActiveState::Damaged(60),
             timer: 0,
@@ -1772,6 +1797,7 @@ struct Game<'a> {
     emu_load: usize,
     boss: BossState<'a>,
     move_state: MoveState,
+    fade_count: u16,
 
     background_distributor: &'a mut BackgroundDistributor,
 }
@@ -1780,6 +1806,7 @@ enum MoveState {
     Advancing,
     PinnedAtEnd,
     FollowingPlayer,
+    Ending,
 }
 
 impl<'a> Game<'a> {
@@ -1823,6 +1850,18 @@ impl<'a> Game<'a> {
                         self.offset.x = (tilemap::WIDTH as i32 * 8 - 248).into();
                     } else if self.offset.x < 8.into() {
                         self.offset.x = 8.into();
+                        self.move_state = MoveState::Ending;
+                    }
+                }
+            }
+            MoveState::Ending => {
+                self.player.controllable = false;
+                if let BossState::Following(boss) = &mut self.boss {
+                    boss.to_hole = true;
+                    if boss.gone {
+                        self.fade_count += 1;
+                        self.fade_count = self.fade_count.min(600);
+                        Game::update_fade_out(self.background_distributor, self.fade_count);
                     }
                 }
             }
@@ -2052,6 +2091,20 @@ impl<'a> Game<'a> {
         background_distributor.set_background_palettes(&modified_palettes);
     }
 
+    fn update_fade_out(background_distributor: &'a mut BackgroundDistributor, time: u16) {
+        let mut modified_palette = background::background.palettes[0].clone();
+
+        let c = modified_palette.get_colour(2);
+
+        modified_palette.update_colour(0, interpolate_colour(17982, 0x7FFF, time, 600));
+        modified_palette.update_colour(1, interpolate_colour(22427, 0x7FFF, time, 600));
+        modified_palette.update_colour(2, interpolate_colour(c, 0x7FFF, time, 600));
+
+        let modified_palettes = [modified_palette];
+
+        background_distributor.set_background_palettes(&modified_palettes);
+    }
+
     fn new(
         object: &'a ObjectControl,
         level: Level,
@@ -2080,6 +2133,7 @@ impl<'a> Game<'a> {
             boss: BossState::NotSpawned,
             move_state: MoveState::Advancing,
             sunrise_timer: 0,
+            fade_count: 0,
 
             background_distributor,
         }
@@ -2123,7 +2177,7 @@ fn game_with_level(gba: &mut agb::Gba) {
                 background.get_regular().unwrap(),
             ),
             &mut background,
-            start_at_boss,
+            true,
         );
 
         start_at_boss = loop {
