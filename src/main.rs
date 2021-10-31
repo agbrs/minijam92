@@ -1620,11 +1620,6 @@ impl<'a> Boss<'a> {
                 if *time == 0 {
                     self.target_location = self.get_next_target_location();
                     self.state = BossActiveState::MovingToTarget;
-                    if self.health == 0 {
-                        enemies.clear();
-                        instruction = BossInstruction::Dead;
-                        self.state = BossActiveState::WaitUntilKilled;
-                    }
                 }
             }
             BossActiveState::MovingToTarget => {
@@ -1641,8 +1636,13 @@ impl<'a> Boss<'a> {
                 *time -= 1;
                 if *time == 0 {
                     enemies.clear();
-                    self.explode(enemies, object_controller);
-                    self.state = BossActiveState::WaitingUntilDamaged
+                    if self.health == 0 {
+                        instruction = BossInstruction::Dead;
+                        self.state = BossActiveState::WaitUntilKilled;
+                    } else {
+                        self.explode(enemies, object_controller);
+                        self.state = BossActiveState::WaitingUntilDamaged
+                    }
                 }
             }
             BossActiveState::WaitingUntilDamaged => {
