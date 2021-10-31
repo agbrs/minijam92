@@ -1031,7 +1031,7 @@ impl MiniFlameData {
         entity: &mut Entity,
         player: &Player,
         _level: &Level,
-        _sfx: &mut sfx::Sfx,
+        sfx: &mut sfx::Sfx,
     ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
 
@@ -1053,6 +1053,7 @@ impl MiniFlameData {
                     if resulting_direction.manhattan_distance() < 1.into() {
                         self.state = MiniFlameState::Idle(30);
                     } else {
+                        sfx.flame_charge();
                         self.state = MiniFlameState::Chasing;
                         entity.velocity = resulting_direction.normalise() * Number::new(2);
                     }

@@ -13,6 +13,7 @@ const PLAYER_LANDS: &[u8] = agb::include_wav!("sfx/PlayerLands.wav");
 const SLIME_BOING: &[u8] = agb::include_wav!("sfx/SlimeBoing.wav");
 const SLIME_DEATH: &[u8] = agb::include_wav!("sfx/SlimeDeath.wav");
 const SWORD_SWING: &[u8] = agb::include_wav!("sfx/SwordSwing.wav");
+const FLAME_CHARGE: &[u8] = agb::include_wav!("sfx/FlameCharge.wav");
 
 const PURPLE_NIGHT: &[u8] = agb::include_wav!("sfx/01 - The Purple Night (Main Loop).wav");
 const PURPLE_NIGHT_INTRO: &[u8] = agb::include_wav!("sfx/01 - The Purple Night (Intro).wav");
@@ -121,5 +122,9 @@ impl<'a> Sfx<'a> {
 
     pub fn bat_death(&mut self) {
         self.mixer.play_sound(SoundChannel::new(BAT_DEATH));
+    }
+
+    pub fn flame_charge(&mut self) {
+        self.mixer.play_sound(SoundChannel::new(FLAME_CHARGE));
     }
 }
