@@ -1387,7 +1387,10 @@ impl<'a> FollowingBoss<'a> {
         let difference = player.entity.position - self.entity.position;
         self.timer += 1;
 
-        if self.following {
+        if self.timer < 120 {
+            let frame = (self.timer / 20) % 12;
+            self.entity.sprite.set_tile_id((125 + frame as u16) * 4)
+        } else if self.following {
             self.entity.velocity = difference / 16;
             if difference.manhattan_distance() < 20.into() {
                 self.following = false;
