@@ -1,10 +1,10 @@
-The hat chooses the wizard
+The purple night
 ==========================
 
 To run on Windows
 -----------------
 
-In order to run the game, either drag `thehatchoosesthewizard.gba` onto mGBA.exe, or start mGBA.exe and load the `thehatchoosesthewizard.gba` ROM.
+In order to run the game, either drag `thepurplenight.gba` onto mGBA.exe, or start mGBA.exe and load the `thepurplenight.gba` ROM.
 
 
 Other platforms
@@ -19,8 +19,8 @@ Controls
 
 GBA Button | Keyboard Button |  Action
 -----------+-----------------+----------
-    A      |       X         | Hat throw
-    B      |       Z         | Jump
+    A      |       X         | Jump
+    B      |       Z         | Attack
   D-Pad    |  Arrow keys     | Move
 
 
@@ -29,13 +29,12 @@ Licence
 
 Music:
 
-Sylvan Waltz by Otto Halmén, CC-BY 3.0
-https://opengameart.org/content/sylvan-waltz-standard-looped-version
+Sam Williams, CC-BY 4.0
 
 Sound effects and graphics:
 
-Corwin and Gwilym, CC-BY 4.0
+Sam, Corwin and Gwilym, CC-BY 4.0
 
 Code:
 
-Corwin and Gwilym, MPL-2.0 eventually
+Corwin and Gwilym, MPL-2.0
