@@ -34,6 +34,7 @@ struct Level {
 
     slime_spawns: Vec<(u16, u16)>,
     bat_spawns: Vec<(u16, u16)>,
+    emu_spawns: Vec<(u16, u16)>,
 }
 
 impl Level {
@@ -86,6 +87,12 @@ impl Level {
             .map(|(i, x)| (*x, tilemap::BAT_SPAWNS_Y[i]))
             .collect();
 
+        let emu_spawns = tilemap::EMU_SPAWNS_X
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (*x, tilemap::EMU_SPAWNS_Y[i]))
+            .collect();
+
         Self {
             background: backdrop,
             foreground,
@@ -93,6 +100,7 @@ impl Level {
 
             slime_spawns,
             bat_spawns,
+            emu_spawns,
         }
     }
 
@@ -1170,11 +1178,11 @@ impl EmuData {
                     .sprite
                     .set_tile_id((170 + self.sprite_offset / 16) * 4);
 
-                if (entity.position.y - player.entity.position.y).abs() < 50.into() {
+                if (entity.position.y - player.entity.position.y).abs() < 10.into() {
                     self.state = EmuState::Charging;
 
-                    let speed = Number::new(2)
-                        * (entity.position.x - player.entity.position.x)
+                    let speed = Number::new(1)
+                        * (player.entity.position.x - entity.position.x)
                             .to_raw()
                             .signum();
                     entity.velocity.x = speed;
@@ -1249,7 +1257,7 @@ impl EnemyData {
             EnemyData::Slime(_) => Rect::new((0u16, 0u16).into(), (4u16, 11u16).into()),
             EnemyData::Bat(_) => Rect::new((0u16, 0u16).into(), (12u16, 4u16).into()),
             EnemyData::MiniFlame(_) => Rect::new((0u16, 0u16).into(), (12u16, 12u16).into()),
-            EnemyData::Emu(_) => Rect::new((1u16, 4u16).into(), (7u16, 14u16).into()),
+            EnemyData::Emu(_) => Rect::new((0u16, 0u16).into(), (7u16, 11u16).into()),
         }
     }
 
@@ -1679,6 +1687,7 @@ struct Game<'a> {
     particles: Arena<Particle<'a>>,
     slime_load: usize,
     bat_load: usize,
+    emu_load: usize,
     boss: BossState<'a>,
     move_state: MoveState,
 
@@ -1918,6 +1927,17 @@ impl<'a> Game<'a> {
                 self.enemies.insert(bat);
             }
         }
+        if self.emu_load < self.level.emu_spawns.len() {
+            for (idx, emu_spawn) in self.level.emu_spawns[self.emu_load..].iter().enumerate() {
+                if emu_spawn.0 as i32 > self.offset.x.floor() + 300 {
+                    break;
+                }
+                self.emu_load = idx + 1;
+                let mut emu = Enemy::new(object_controller, EnemyData::Emu(EmuData::new()));
+                emu.entity.position = (emu_spawn.0 as i32, emu_spawn.1 as i32 - 7).into();
+                self.enemies.insert(emu);
+            }
+        }
     }
 
     fn start_sunrise(background_distributor: &'a mut BackgroundDistributor) {
@@ -1946,6 +1966,7 @@ impl<'a> Game<'a> {
             enemies: Arena::with_capacity(100),
             slime_load: 0,
             bat_load: 0,
+            emu_load: 0,
             particles: Arena::with_capacity(30),
             boss: BossState::NotSpawned,
             move_state: MoveState::Advancing,

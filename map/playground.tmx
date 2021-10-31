@@ -107,7 +107,7 @@
   <object id="1" type="Slime Spawn" x="136" y="112">
    <point/>
   </object>
-  <object id="2" type="Slime Spawn" x="208" y="72">
+  <object id="2" type="Emu Spawn" x="208" y="72">
    <point/>
   </object>
   <object id="3" type="Slime Spawn" x="80" y="56">
