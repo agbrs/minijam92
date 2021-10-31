@@ -1157,7 +1157,7 @@ impl EmuData {
         entity: &mut Entity,
         player: &Player,
         level: &Level,
-        _sfx: &mut sfx::Sfx,
+        sfx: &mut sfx::Sfx,
     ) -> UpdateInstruction {
         let mut instruction = UpdateInstruction::None;
 
@@ -1213,6 +1213,10 @@ impl EmuData {
                     self.sprite_offset = 0;
                 }
 
+                if self.sprite_offset == 2 * 2 {
+                    sfx.emu_step();
+                }
+
                 entity
                     .sprite
                     .set_tile_id((173 + self.sprite_offset / 2) * 4);
@@ -1224,6 +1228,7 @@ impl EmuData {
                 let distance_travelled = entity.update_position(level);
 
                 if distance_travelled.x == 0.into() {
+                    sfx.emu_crash();
                     self.state = EmuState::Knockback;
                     entity.velocity = (-direction / 2, Number::new(-1)).into();
                 }
