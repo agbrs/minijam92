@@ -17,3 +17,5 @@ rm -f target/thepurplenight.zip
 cp -r html target/html
 cp target/final-zip/the-purple-night/thepurplenight.gba target/html/thepurplenight.gba
 (cd target/html && zip ../html.zip ./*)
+
+cp target/final-zip/the-purple-night/thepurplenight.gba target/thepurplenight.gba
