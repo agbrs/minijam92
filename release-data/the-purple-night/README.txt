@@ -29,7 +29,7 @@ Licence
 
 Music:
 
-Sam Williams, CC-BY 4.0
+Sam Williams (https://www.samwilliamssound.co.uk/​)
 
 Sound effects and graphics:
 
